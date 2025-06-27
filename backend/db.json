@@ -1,0 +1,28 @@
+{
+  "users": [
+    {
+      "id": "c1a59ac7-87be-4141-a8a4-ae15f523df4f",
+      "username": "admin",
+      "password": "$2b$10$14p/8jDKJQwi7rhpQQomMO/OD6DKJRXmhudvsqoFLcyqcvNHSjPny",
+      "role": "admin",
+      "name": "Administrator"
+    },
+    {
+      "id": "1382068a-40e1-4b10-80e4-ff599388c38a",
+      "username": "courier1",
+      "password": "$2b$10$NlilbYVXdrKqg.POXsBI9O0YcC.E2Vkk8jzROXe0PrY6jGG/5Qz1S",
+      "role": "courier",
+      "name": "Courier One"
+    }
+  ],
+  "actas": [],
+  "invoices": [],
+  "payments": [],
+  "cityRates": {
+    "Miami": 2.5,
+    "New York": 3,
+    "Los Angeles": 2.8,
+    "Houston": 2.2,
+    "Chicago": 2.7
+  }
+}
