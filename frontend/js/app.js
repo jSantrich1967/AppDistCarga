@@ -4,9 +4,8 @@ let cityRates = {};
 let currentActa = null;
 
 // API Base URL
-// IMPORTANTE: Esta URL deberá ser actualizada cuando despleguemos
-// el backend en un servicio como Render. Por ahora, apunta a nuestro servidor local.
-const API_BASE = 'http://localhost:3001/api';
+// ¡Esta es la URL de nuestro backend en producción!
+const API_BASE = 'https://appdistcarga.onrender.com/api';
 
 // Elementos del DOM
 const loginScreen = document.getElementById('loginScreen');

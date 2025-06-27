@@ -15,8 +15,13 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET;
 
 // Middleware
-// TODO: Para producción, deberías cambiar el origin a la URL de tu app en Netlify
-app.use(cors({ credentials: true, origin: ['http://localhost:8080', 'http://127.0.0.1:5500'] }));
+// Añadimos la URL de Netlify a la lista de orígenes permitidos
+const allowedOrigins = [
+    'http://localhost:8080', 
+    'http://127.0.0.1:5500',
+    'https://illustrious-cassata-b59f1f.netlify.app'
+];
+app.use(cors({ credentials: true, origin: allowedOrigins }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
