@@ -19,7 +19,8 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const allowedOrigins = [
     'http://localhost:8080', 
     'http://127.0.0.1:5500',
-    'https://illustrious-cassata-b59f1f.netlify.app'
+    'https://illustrious-cassata-b59f1f.netlify.app',
+    'https://darling-kangaroo-a3f22e.netlify.app'
 ];
 app.use(cors({ credentials: true, origin: allowedOrigins }));
 app.use(express.json());
