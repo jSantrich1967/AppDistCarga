@@ -22,7 +22,19 @@ const allowedOrigins = [
     'https://illustrious-cassata-b59f1f.netlify.app',
     'https://darling-kangaroo-a3f22e.netlify.app'
 ];
-app.use(cors({ credentials: true, origin: allowedOrigins }));
+
+const corsOptions = {
+    origin: function (origin, callback) {
+        if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
