@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const { body, validationResult } = require('express-validator');
+const cookieParser = require('cookie-parser');
 
 // Cargar variables de entorno
 require('dotenv').config();
@@ -33,6 +34,7 @@ const corsOptions = {
     credentials: true
 };
 
+app.use(cookieParser());
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
