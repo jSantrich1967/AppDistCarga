@@ -30,11 +30,6 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Servir archivos estáticos
-const frontendPath = path.join(__dirname, 'frontend');
-console.log('Frontend path:', frontendPath);
-app.use(express.static(frontendPath));
-
 // Base de datos JSON
 let db = {};
 const dbPath = path.join(__dirname, 'backend', 'db.json');
@@ -96,10 +91,7 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// Ruta principal - servir frontend
-app.get('/', (req, res) => {
-    res.sendFile(path.join(frontendPath, 'index.html'));
-});
+// Las rutas estáticas se configuran al final
 
 // API de diagnóstico temporal
 app.get('/api/debug', (req, res) => {
@@ -234,6 +226,16 @@ app.get('/api/city-rates', authenticateToken, (req, res) => {
 app.post('/api/logout', (req, res) => {
     res.cookie('token', '', { httpOnly: true, expires: new Date(0) });
     res.json({ message: 'Logout successful' });
+});
+
+// ===== DESPUÉS DE TODAS LAS APIS, SERVIR ARCHIVOS ESTÁTICOS =====
+const frontendPath = path.join(__dirname, 'frontend');
+console.log('Frontend path:', frontendPath);
+app.use(express.static(frontendPath));
+
+// Ruta catch-all para SPA - debe ir AL FINAL
+app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendPath, 'index.html'));
 });
 
 // Cargar base de datos e iniciar servidor
