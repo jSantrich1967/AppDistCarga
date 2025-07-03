@@ -104,8 +104,18 @@ app.get('/', (req, res) => {
 // API de login
 app.post('/api/login', async (req, res) => {
     try {
-        console.log('Login attempt:', req.body.username);
+        console.log('Login attempt received');
+        console.log('Request body:', req.body);
+        console.log('Database users:', db.users ? db.users.length : 0);
+        
         const { username, password } = req.body;
+        
+        if (!username || !password) {
+            console.log('Missing username or password');
+            return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
+        }
+        
+        console.log('Login attempt for user:', username);
         
         const user = db.users.find(u => u.username === username);
         if (!user) {
@@ -128,7 +138,7 @@ app.post('/api/login', async (req, res) => {
         res.cookie('token', token, {
             httpOnly: true,
             secure: NODE_ENV === 'production',
-            sameSite: NODE_ENV === 'production' ? 'none' : 'lax',
+            sameSite: 'lax',
             maxAge: 24 * 60 * 60 * 1000
         });
 
