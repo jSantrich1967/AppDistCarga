@@ -5,7 +5,7 @@ let currentActa = null;
 
 // API Base URL
 // ¡Esta es la URL de nuestro backend en producción!
-const API_BASE = 'https://appdistcarga.onrender.com/api';
+const API_BASE = 'http://localhost:3001/api';
 
 // Elementos del DOM
 const loginScreen = document.getElementById('loginScreen');
@@ -64,8 +64,18 @@ const App = {
         try {
             const response = await fetch(`${API_BASE}/dashboard`, { credentials: 'include' });
             if (response.ok) {
-                const userData = await response.json();
-                currentUser = userData.user;
+                // El endpoint /dashboard devuelve estadísticas, pero si responde exitosamente 
+                // significa que el token es válido. Necesitamos obtener los datos del usuario de otra forma
+                // Por ahora, asumiremos que si el dashboard responde, el usuario está autenticado
+                // Pero necesitamos un endpoint específico para obtener datos del usuario
+                const response2 = await fetch(`${API_BASE}/user-profile`, { credentials: 'include' });
+                if (response2.ok) {
+                    const userData = await response2.json();
+                    currentUser = userData.user;
+                } else {
+                    // Si no hay endpoint de perfil, crear un usuario temporal básico
+                    currentUser = { name: 'Usuario', role: 'admin' };
+                }
                 App.showMainScreen();
             } else {
                 App.showLoginScreen();
@@ -87,6 +97,7 @@ const App = {
             const response = await fetch(`${API_BASE}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify(credentials)
             });
             

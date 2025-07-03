@@ -19,6 +19,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const allowedOrigins = [
     'http://localhost:8080', 
     'http://127.0.0.1:5500',
+    'http://localhost:3001',
     'https://illustrious-cassata-b59f1f.netlify.app',
     'https://darling-kangaroo-a3f22e.netlify.app'
 ];
@@ -231,6 +232,26 @@ app.post('/api/logout', (req, res) => {
         expires: new Date(0)
     });
     res.status(200).json({ message: 'Logout successful' });
+});
+
+app.get('/api/user-profile', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password');
+        if (!user) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+        res.json({
+            user: {
+                id: user._id,
+                username: user.username,
+                role: user.role,
+                name: user.name
+            }
+        });
+    } catch (error) {
+        console.error('Error obteniendo perfil de usuario:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
 });
 
 app.get('/api/dashboard', authenticateToken, async (req, res) => {

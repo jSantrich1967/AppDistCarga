@@ -7,4 +7,25 @@
 backend/.env
 
 # macOS
-.DS_Store 
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build outputs
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+
+# Archives
+*.zip
+
+# Deployment
+.vercel 

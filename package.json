@@ -1,0 +1,34 @@
+{
+  "name": "app-dist-carga",
+  "version": "1.0.0",
+  "description": "Sistema de Gestión de Actas de Despacho",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "local": "node start.js"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "author": "",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jSantrich1967/AppDistCarga.git"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/jSantrich1967/AppDistCarga/issues"
+  },
+  "homepage": "https://github.com/jSantrich1967/AppDistCarga#readme",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.0.1",
+    "express": "^5.1.0",
+    "express-validator": "^7.2.1",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
