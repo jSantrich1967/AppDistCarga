@@ -3,9 +3,10 @@ let currentUser = null;
 let cityRates = {};
 let currentActa = null;
 
-// API Base URL
-// ¡Esta es la URL de nuestro backend en producción!
-const API_BASE = 'http://localhost:3001/api';
+// API Base URL - Se adapta automáticamente al entorno
+const API_BASE = window.location.hostname === 'localhost' 
+    ? 'http://localhost:3001/api' 
+    : `${window.location.protocol}//${window.location.host}/api`;
 
 // Elementos del DOM
 const loginScreen = document.getElementById('loginScreen');
