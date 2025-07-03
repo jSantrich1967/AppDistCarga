@@ -101,21 +101,34 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
 });
 
+// API de diagnóstico temporal
+app.get('/api/debug', (req, res) => {
+    res.json({
+        status: 'ok',
+        nodeEnv: NODE_ENV,
+        port: PORT,
+        jwtSecret: JWT_SECRET ? 'configured' : 'missing',
+        dbUsers: db.users ? db.users.length : 0,
+        dbLoaded: db.users ? true : false
+    });
+});
+
 // API de login
 app.post('/api/login', async (req, res) => {
     try {
-        console.log('Login attempt received');
+        console.log('=== LOGIN ATTEMPT ===');
         console.log('Request body:', req.body);
+        console.log('JWT_SECRET exists:', !!JWT_SECRET);
         console.log('Database users:', db.users ? db.users.length : 0);
         
         const { username, password } = req.body;
         
         if (!username || !password) {
-            console.log('Missing username or password');
+            console.log('Missing credentials');
             return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
         }
         
-        console.log('Login attempt for user:', username);
+        console.log('Looking for user:', username);
         
         const user = db.users.find(u => u.username === username);
         if (!user) {
@@ -123,18 +136,38 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ error: 'Credenciales inválidas' });
         }
 
-        const isValidPassword = await bcrypt.compare(password, user.password);
+        console.log('Found user, checking password...');
+        console.log('User hash:', user.password);
+        
+        let isValidPassword = false;
+        try {
+            isValidPassword = await bcrypt.compare(password, user.password);
+            console.log('Password check result:', isValidPassword);
+        } catch (bcryptError) {
+            console.error('Bcrypt error:', bcryptError);
+            return res.status(500).json({ error: 'Error de autenticación' });
+        }
+        
         if (!isValidPassword) {
             console.log('Invalid password for user:', username);
             return res.status(401).json({ error: 'Credenciales inválidas' });
         }
 
-        const token = jwt.sign(
-            { id: user.id, username: user.username, role: user.role },
-            JWT_SECRET,
-            { expiresIn: '24h' }
-        );
+        console.log('Creating JWT token...');
+        let token;
+        try {
+            token = jwt.sign(
+                { id: user.id, username: user.username, role: user.role },
+                JWT_SECRET,
+                { expiresIn: '24h' }
+            );
+            console.log('JWT token created successfully');
+        } catch (jwtError) {
+            console.error('JWT error:', jwtError);
+            return res.status(500).json({ error: 'Error generando token' });
+        }
 
+        console.log('Setting cookie...');
         res.cookie('token', token, {
             httpOnly: true,
             secure: NODE_ENV === 'production',
@@ -152,8 +185,10 @@ app.post('/api/login', async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ error: 'Error interno del servidor' });
+        console.error('=== LOGIN ERROR ===');
+        console.error('Error details:', error);
+        console.error('Stack trace:', error.stack);
+        res.status(500).json({ error: 'Error interno del servidor: ' + error.message });
     }
 });
 
