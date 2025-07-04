@@ -2,9 +2,9 @@
   "name": "app-dist-carga",
   "version": "1.0.0",
   "description": "Sistema de Gestión de Actas de Despacho",
-  "main": "server.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node index.js",
     "dev": "node server.js",
     "local": "node start.js",
     "build": "npm ci --production",
