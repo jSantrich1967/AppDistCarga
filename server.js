@@ -20,10 +20,16 @@ console.log('Working directory:', process.cwd());
 
 const app = express();
 
-// CORS simplificado para producción
+// Definir frontendPath al principio para uso en todas las rutas
+const frontendPath = path.join(__dirname, 'frontend');
+console.log('Frontend path:', frontendPath);
+
+// CORS configurado para desarrollo y producción
 app.use(cors({
-    origin: true, // Permitir todos los orígenes en producción
-    credentials: true
+    origin: NODE_ENV === 'production' ? true : ['http://localhost:3000', 'http://localhost:3001'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));
 
 app.use(cookieParser());
@@ -101,7 +107,10 @@ app.get('/api/debug', (req, res) => {
         port: PORT,
         jwtSecret: JWT_SECRET ? 'configured' : 'missing',
         dbUsers: db.users ? db.users.length : 0,
-        dbLoaded: db.users ? true : false
+        dbLoaded: db.users ? true : false,
+        frontendPath: frontendPath,
+        workingDirectory: process.cwd(),
+        timestamp: new Date().toISOString()
     });
 });
 
@@ -163,7 +172,7 @@ app.post('/api/login', async (req, res) => {
         res.cookie('token', token, {
             httpOnly: true,
             secure: NODE_ENV === 'production',
-            sameSite: 'lax',
+            sameSite: NODE_ENV === 'production' ? 'none' : 'lax',
             maxAge: 24 * 60 * 60 * 1000
         });
 
@@ -229,13 +238,17 @@ app.post('/api/logout', (req, res) => {
 });
 
 // ===== DESPUÉS DE TODAS LAS APIS, SERVIR ARCHIVOS ESTÁTICOS =====
-const frontendPath = path.join(__dirname, 'frontend');
-console.log('Frontend path:', frontendPath);
 app.use(express.static(frontendPath));
 
-// Ruta catch-all para SPA - debe ir AL FINAL
+// Catch-all handler: enviar index.html para todas las rutas no API
+// Esto es necesario para aplicaciones SPA (Single Page Application)
 app.get('*', (req, res) => {
-    res.sendFile(path.join(frontendPath, 'index.html'));
+    // Solo aplicar catch-all a rutas que no sean API
+    if (!req.path.startsWith('/api/')) {
+        res.sendFile(path.join(frontendPath, 'index.html'));
+    } else {
+        res.status(404).json({ error: 'API endpoint not found' });
+    }
 });
 
 // Cargar base de datos e iniciar servidor
@@ -244,6 +257,9 @@ loadDatabase();
 const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`=== SERVIDOR INICIADO ===`);
     console.log(`URL: http://0.0.0.0:${PORT}`);
+    console.log(`NODE_ENV: ${NODE_ENV}`);
+    console.log(`Frontend path: ${frontendPath}`);
+    console.log(`Working directory: ${process.cwd()}`);
     console.log('Usuarios disponibles:');
     if (db.users) {
         db.users.forEach(user => {
