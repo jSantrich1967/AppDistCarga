@@ -6,10 +6,13 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "local": "node start.js"
+    "local": "node start.js",
+    "build": "npm ci --production",
+    "postinstall": "echo 'Dependencies installed successfully'"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=16.0.0",
+    "npm": ">=7.0.0"
   },
   "author": "",
   "license": "ISC",
