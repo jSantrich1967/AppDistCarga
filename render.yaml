@@ -1,10 +1,10 @@
 services:
   - type: web
-    name: app-dist-carga
+    name: app-dist-carga-backend
     env: node
     plan: free
-    rootDir: .
-    buildCommand: rm -rf node_modules package-lock.json && npm install
+    rootDir: backend
+    buildCommand: npm install
     startCommand: npm start
     envVars:
       - key: NODE_ENV

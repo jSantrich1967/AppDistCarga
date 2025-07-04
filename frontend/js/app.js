@@ -4,9 +4,7 @@ let cityRates = {};
 let currentActa = null;
 
 // API Base URL - Se adapta automáticamente al entorno
-const API_BASE = window.location.hostname === 'localhost' 
-    ? 'http://localhost:3001/api' 
-    : `${window.location.protocol}//${window.location.host}/api`;
+const API_BASE = 'https://appdistcarga.onrender.com/api';
 
 // Elementos del DOM
 const loginScreen = document.getElementById('loginScreen');
