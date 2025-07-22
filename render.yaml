@@ -3,9 +3,9 @@ services:
     name: app-dist-carga-backend
     env: node
     plan: free
-    rootDir: .
+    rootDir: backend
     buildCommand: npm install
-    startCommand: npm run dev
+    startCommand: node server.js
     envVars:
       - key: NODE_ENV
         value: production 
