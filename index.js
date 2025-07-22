@@ -59,6 +59,45 @@ app.get('/api/user-profile', (req, res) => {
     });
 });
 
+// APIs básicas para la aplicación
+app.get('/api/actas', (req, res) => {
+    res.json([]);
+});
+
+app.post('/api/actas', (req, res) => {
+    res.json({ id: Date.now(), ...req.body });
+});
+
+app.get('/api/invoices', (req, res) => {
+    res.json([]);
+});
+
+app.post('/api/invoices', (req, res) => {
+    res.json({ id: Date.now(), number: 1, total: 0, status: 'pending' });
+});
+
+app.get('/api/payments', (req, res) => {
+    res.json([]);
+});
+
+app.post('/api/payments', (req, res) => {
+    res.json({ id: Date.now(), ...req.body });
+});
+
+app.get('/api/city-rates', (req, res) => {
+    res.json({
+        "Miami": 2.5,
+        "New York": 3,
+        "Los Angeles": 2.8,
+        "Houston": 2.2,
+        "Chicago": 2.7
+    });
+});
+
+app.put('/api/city-rates', (req, res) => {
+    res.json({ message: 'Rates updated successfully' });
+});
+
 // API de logout
 app.post('/api/logout', (req, res) => {
     res.json({ message: 'Logout successful' });
