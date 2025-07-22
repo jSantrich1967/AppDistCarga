@@ -26,7 +26,7 @@ console.log('Frontend path:', frontendPath);
 
 // CORS configurado para desarrollo y producción
 app.use(cors({
-    origin: NODE_ENV === 'production' ? true : ['http://localhost:3000', 'http://localhost:3001'],
+    origin: NODE_ENV === 'production' ? true : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
@@ -81,6 +81,25 @@ function loadDatabase() {
         console.log('Using fallback database');
     }
 }
+
+// === NUEVA FUNCIÓN PARA GUARDAR LA BASE DE DATOS ===
+function saveDatabase() {
+    try {
+        fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
+    } catch (error) {
+        console.error('Error saving database:', error);
+    }
+}
+
+// === MIDDLEWARE DE AUTORIZACIÓN POR ROL ===
+const authorizeRoles = (roles) => {
+    return (req, res, next) => {
+        if (!roles.includes(req.user.role)) {
+            return res.status(403).json({ error: 'No tiene permisos para realizar esta acción' });
+        }
+        next();
+    };
+};
 
 // Middleware de autenticación
 const authenticateToken = (req, res, next) => {
@@ -235,6 +254,144 @@ app.get('/api/city-rates', authenticateToken, (req, res) => {
 app.post('/api/logout', (req, res) => {
     res.cookie('token', '', { httpOnly: true, expires: new Date(0) });
     res.json({ message: 'Logout successful' });
+});
+
+// ===== RUTAS DE ACTAS =====
+app.get('/api/actas', authenticateToken, (req, res) => {
+    try {
+        let actas = db.actas;
+        // Si es courier solo ve sus actas
+        if (req.user.role === 'courier') {
+            actas = actas.filter(a => a.courierId === req.user.id);
+        }
+        res.json(actas);
+    } catch (error) {
+        console.error('Error obteniendo actas:', error);
+        res.status(500).json({ error: 'Error obteniendo actas' });
+    }
+});
+
+app.post('/api/actas', authenticateToken, authorizeRoles(['admin', 'courier']), (req, res) => {
+    try {
+        const newActa = {
+            id: Date.now().toString(),
+            ...req.body,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+        if (req.user.role === 'courier') {
+            newActa.courierId = req.user.id;
+        }
+        db.actas.push(newActa);
+        saveDatabase();
+        res.status(201).json(newActa);
+    } catch (error) {
+        console.error('Error creando acta:', error);
+        res.status(500).json({ error: 'Error creando acta' });
+    }
+});
+
+app.put('/api/actas/:id', authenticateToken, authorizeRoles(['admin', 'courier']), (req, res) => {
+    try {
+        const acta = db.actas.find(a => a.id === req.params.id);
+        if (!acta) return res.status(404).json({ error: 'Acta no encontrada' });
+        Object.assign(acta, req.body, { updatedAt: new Date() });
+        saveDatabase();
+        res.json(acta);
+    } catch (error) {
+        console.error('Error actualizando acta:', error);
+        res.status(500).json({ error: 'Error actualizando acta' });
+    }
+});
+
+// ===== RUTAS DE FACTURAS =====
+app.get('/api/invoices', authenticateToken, (req, res) => {
+    try {
+        let invoices = db.invoices;
+        if (req.user.role === 'courier') {
+            invoices = invoices.filter(inv => inv.courierId === req.user.id);
+        }
+        res.json(invoices);
+    } catch (error) {
+        console.error('Error obteniendo facturas:', error);
+        res.status(500).json({ error: 'Error obteniendo facturas' });
+    }
+});
+
+app.post('/api/invoices', authenticateToken, authorizeRoles(['admin', 'courier']), (req, res) => {
+    try {
+        const { actaId } = req.body;
+        const acta = db.actas.find(a => a.id === actaId);
+        if (!acta) return res.status(404).json({ error: 'Acta no encontrada' });
+
+        const total = (acta.guides || []).reduce((sum, g) => sum + (parseFloat(g.subtotal) || 0), 0);
+
+        const newInvoice = {
+            id: Date.now().toString(),
+            number: db.invoices.length + 1,
+            actaId,
+            courierId: acta.courierId || null,
+            total,
+            status: 'pending',
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+
+        db.invoices.push(newInvoice);
+        saveDatabase();
+        res.status(201).json(newInvoice);
+    } catch (error) {
+        console.error('Error creando factura:', error);
+        res.status(500).json({ error: 'Error creando factura' });
+    }
+});
+
+// ===== RUTAS DE PAGOS =====
+app.get('/api/payments', authenticateToken, (req, res) => {
+    try {
+        let payments = db.payments;
+        if (req.user.role === 'courier') {
+            const courierInvoices = db.invoices.filter(inv => inv.courierId === req.user.id).map(inv => inv.id);
+            payments = payments.filter(p => courierInvoices.includes(p.invoiceId));
+        }
+        res.json(payments);
+    } catch (error) {
+        console.error('Error obteniendo pagos:', error);
+        res.status(500).json({ error: 'Error obteniendo pagos' });
+    }
+});
+
+app.post('/api/payments', authenticateToken, authorizeRoles(['admin']), (req, res) => {
+    try {
+        const { invoiceId, amount, description } = req.body;
+        const invoice = db.invoices.find(inv => inv.id === invoiceId);
+        if (!invoice) return res.status(404).json({ error: 'Factura no encontrada' });
+
+        const payment = {
+            id: Date.now().toString(),
+            invoiceId,
+            amount: parseFloat(amount),
+            description: description || '',
+            createdAt: new Date()
+        };
+
+        db.payments.push(payment);
+
+        // Calcular pagos totales para la factura
+        const totalPagado = db.payments.filter(p => p.invoiceId === invoiceId).reduce((sum, p) => sum + p.amount, 0);
+        if (totalPagado >= invoice.total) {
+            invoice.status = 'paid';
+        } else {
+            invoice.status = totalPagado > 0 ? 'partial' : 'pending';
+        }
+        invoice.updatedAt = new Date();
+
+        saveDatabase();
+        res.status(201).json(payment);
+    } catch (error) {
+        console.error('Error registrando pago:', error);
+        res.status(500).json({ error: 'Error registrando pago' });
+    }
 });
 
 // ===== DESPUÉS DE TODAS LAS APIS, SERVIR ARCHIVOS ESTÁTICOS =====

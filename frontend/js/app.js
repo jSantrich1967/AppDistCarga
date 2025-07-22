@@ -3,8 +3,10 @@ let currentUser = null;
 let cityRates = {};
 let currentActa = null;
 
-// API Base URL - Se adapta automáticamente al entorno
-const API_BASE = 'https://appdistcarga.onrender.com/api';
+// API Base URL - Dinámico según el host actual
+// Si estamos en producción en Render, el dominio será appdistcarga.onrender.com
+// Si estamos en desarrollo (localhost), usará ese mismo origen.
+const API_BASE = `${window.location.origin}/api`;
 
 // Elementos del DOM
 const loginScreen = document.getElementById('loginScreen');
@@ -180,6 +182,8 @@ const App = {
         document.querySelectorAll('.modal').forEach(modal => {
             modal.classList.remove('active');
         });
+        // Asegurar que el loading overlay se cierre cuando se cierren los modales
+        App.showLoading(false);
     },
 
     // API Calls
@@ -349,6 +353,8 @@ const App = {
     },
 
     showNewActaModal: function() {
+        // Asegurar que el loading overlay esté cerrado antes de mostrar el modal
+        App.showLoading(false);
         currentActa = null;
         document.getElementById('actaModalTitle').textContent = 'Nueva Acta de Despacho';
         document.getElementById('actaForm').reset();
@@ -556,6 +562,8 @@ const App = {
     },
 
     showPaymentModal: function(invoiceId) {
+        // Asegurar que el loading overlay esté cerrado antes de mostrar el modal
+        App.showLoading(false);
         document.getElementById('paymentInvoiceId').value = invoiceId;
         document.getElementById('paymentForm').reset();
         document.getElementById('paymentModal').classList.add('active');
