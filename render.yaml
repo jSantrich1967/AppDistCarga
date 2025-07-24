@@ -4,8 +4,9 @@ services:
     env: node
     plan: free
     rootDir: .
-    buildCommand: npm ci --production
+    buildCommand: npm ci --only=production
     startCommand: npm start
+    healthCheckPath: /api/debug
     envVars:
       - key: NODE_ENV
         value: production 
