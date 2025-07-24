@@ -1,12 +1,20 @@
 services:
+  # Backend Service (Node.js with Express)
   - type: web
     name: app-dist-carga-backend
     env: node
     plan: free
     rootDir: .
-    buildCommand: npm ci --only=production
-    startCommand: npm start
+    buildCommand: npm install --production
+    startCommand: node backend/server-simple.js
     healthCheckPath: /api/debug
     envVars:
       - key: NODE_ENV
-        value: production 
+        value: production
+
+  # Frontend Service (Static HTML/CSS/JS)
+  - type: static
+    name: app-dist-carga-frontend
+    plan: free
+    rootDir: frontend
+    staticPublishPath: . 

@@ -37,7 +37,9 @@ const App = {
                 App.showSection(section);
             });
         });
-        document.getElementById('newActaBtn').addEventListener('click', App.showNewActaModal);
+        document.getElementById('filterCiudad').addEventListener('change', App.applyActasFilters);
+        document.getElementById('filterAgente').addEventListener('change', App.applyActasFilters);
+        document.getElementById('clearFiltersBtn').addEventListener('click', App.clearActasFilters);
         document.querySelectorAll('.modal-close').forEach(btn => {
             btn.addEventListener('click', App.closeModals);
         });
@@ -47,6 +49,7 @@ const App = {
         document.getElementById('paymentForm').addEventListener('submit', App.handlePaymentSubmit);
         document.getElementById('saveCityRatesBtn').addEventListener('click', App.saveCityRates);
         document.getElementById('addCityForm').addEventListener('submit', App.handleAddCity);
+        document.getElementById('addAgentForm').addEventListener('submit', App.handleAddAgent);
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
@@ -139,7 +142,7 @@ const App = {
         loginForm.reset();
     },
 
-    showMainScreen: function() {
+    showMainScreen: async function() { // Make async
         loginScreen.classList.remove('active');
         mainScreen.classList.add('active');
         
@@ -148,7 +151,10 @@ const App = {
         document.getElementById('userInfo').textContent = 
             `${currentUser.name} (${currentUser.role === 'admin' ? 'Administrador' : 'Courier'})`;
         
-        App.showSection('dashboard');
+        // Cargar datos esenciales al iniciar la pantalla principal
+        await App.loadCityRates(); // Cargar tarifas de ciudades
+        
+        App.showSection('dashboard'); // Mostrar el dashboard después de cargar los datos
     },
 
     showSection: function(sectionName) {
@@ -165,7 +171,7 @@ const App = {
             case 'actas': App.loadActas(); break;
             case 'invoices': App.loadInvoices(); break;
             case 'payments': App.loadPayments(); break;
-            case 'settings': App.loadCityRates(); break;
+            case 'settings': App.loadSettings(); break;
         }
     },
 
@@ -222,6 +228,94 @@ const App = {
             console.error('Error loading dashboard:', error);
         }
     },
+
+    // Settings Management (City Rates and Agents)
+    loadSettings: async function() {
+        await App.loadCityRates();
+        await App.loadAgents();
+    },
+
+    // Agent Management
+    loadAgents: async function() {
+        try {
+            const agents = await App.apiCall('/agents');
+            App.updateAgentsUI(agents);
+            App.updateAgentSelects(agents);
+        } catch (error) {
+            console.error('Error loading agents:', error);
+        }
+    },
+
+    updateAgentsUI: function(agents) {
+        const container = document.getElementById('agentsContainer');
+        container.innerHTML = '';
+        agents.forEach(agent => {
+            const div = document.createElement('div');
+            div.className = 'agent-item';
+            div.innerHTML = `
+                <span>${agent.name}</span>
+                <button class="btn btn-danger btn-sm" onclick="App.deleteAgent('${agent.id}')"><i class="fas fa-trash"></i></button>
+            `;
+            container.appendChild(div);
+        });
+    },
+
+    handleAddAgent: async function(e) {
+        e.preventDefault();
+        const nameInput = document.getElementById('newAgentName');
+        const name = nameInput.value.trim();
+
+        if (!name) {
+            alert('Por favor, introduce un nombre para el agente.');
+            return;
+        }
+
+        try {
+            App.showLoading(true);
+            await App.apiCall('/agents', {
+                method: 'POST',
+                body: JSON.stringify({ name })
+            });
+            nameInput.value = '';
+            alert('Agente añadido exitosamente.');
+            App.loadAgents(); // Recargar la lista de agentes
+        } catch (error) {
+            console.error('Error adding agent:', error);
+            alert('Error al añadir el agente.');
+        } finally {
+            App.showLoading(false);
+        }
+    },
+
+    deleteAgent: async function(agentId) {
+        if (confirm('¿Estás seguro de que quieres eliminar este agente?')) {
+            try {
+                App.showLoading(true);
+                await App.apiCall(`/agents/${agentId}`, {
+                    method: 'DELETE'
+                });
+                alert('Agente eliminado exitosamente.');
+                App.loadAgents(); // Recargar la lista de agentes
+            } catch (error) {
+                console.error('Error deleting agent:', error);
+                alert('Error al eliminar el agente.');
+            } finally {
+                App.showLoading(false);
+            }
+        }
+    },
+
+    updateAgentSelects: function(agents) {
+        const selects = document.querySelectorAll('select[name="agente"]');
+        const agentOptions = agents.map(agent => `<option value="${agent.name}">${agent.name}</option>`).join('');
+        
+        selects.forEach(select => {
+            const currentValue = select.value;
+            select.innerHTML = `<option value="">Seleccionar agente</option>${agentOptions}`;
+            select.value = currentValue;
+        });
+    },
+        
 
     // City Rates
     loadCityRates: async function() {
@@ -326,11 +420,70 @@ const App = {
     // Actas Management
     loadActas: async function() {
         try {
-            const actas = await App.apiCall('/actas');
-            App.updateActasTable(actas);
+            const allActas = await App.apiCall('/actas');
+            
+            // Populate filter dropdowns
+            App.populateFilterDropdowns(allActas);
+
+            // Apply current filters
+            const filterCiudad = document.getElementById('filterCiudad').value;
+            const filterAgente = document.getElementById('filterAgente').value;
+
+            let filteredActas = allActas;
+            if (filterCiudad) {
+                filteredActas = filteredActas.filter(acta => acta.ciudad === filterCiudad);
+            }
+            if (filterAgente) {
+                filteredActas = filteredActas.filter(acta => acta.agente === filterAgente);
+            }
+
+            App.updateActasTable(filteredActas);
         } catch (error) {
             console.error('Error loading actas:', error);
         }
+    },
+
+    populateFilterDropdowns: function(actas) {
+        const filterCiudadSelect = document.getElementById('filterCiudad');
+        const filterAgenteSelect = document.getElementById('filterAgente');
+
+        // Save current selections
+        const currentCiudad = filterCiudadSelect.value;
+        const currentAgente = filterAgenteSelect.value;
+
+        // Clear existing options (except the default "Todas/Todos")
+        filterCiudadSelect.innerHTML = '<option value="">Todas las ciudades</option>';
+        filterAgenteSelect.innerHTML = '<option value="">Todos los agentes</option>';
+
+        const uniqueCiudades = [...new Set(actas.map(acta => acta.ciudad).filter(Boolean))];
+        uniqueCiudades.sort().forEach(ciudad => {
+            const option = document.createElement('option');
+            option.value = ciudad;
+            option.textContent = ciudad;
+            filterCiudadSelect.appendChild(option);
+        });
+
+        const uniqueAgentes = [...new Set(actas.map(acta => acta.agente).filter(Boolean))];
+        uniqueAgentes.sort().forEach(agente => {
+            const option = document.createElement('option');
+            option.value = agente;
+            option.textContent = agente;
+            filterAgenteSelect.appendChild(option);
+        });
+
+        // Restore previous selections
+        filterCiudadSelect.value = currentCiudad;
+        filterAgenteSelect.value = currentAgente;
+    },
+
+    applyActasFilters: function() {
+        App.loadActas(); // Reload actas with current filter selections
+    },
+
+    clearActasFilters: function() {
+        document.getElementById('filterCiudad').value = '';
+        document.getElementById('filterAgente').value = '';
+        App.loadActas(); // Reload actas to show all
     },
 
     updateActasTable: function(actas) {
@@ -355,6 +508,10 @@ const App = {
     showNewActaModal: function() {
         // Asegurar que el loading overlay esté cerrado antes de mostrar el modal
         App.showLoading(false);
+
+        // Forzar la actualización del selector de ciudades justo antes de mostrar el modal
+        App.updateCitySelects();
+
         currentActa = null;
         document.getElementById('actaModalTitle').textContent = 'Nueva Acta de Despacho';
         document.getElementById('actaForm').reset();

@@ -155,6 +155,24 @@
                         Nueva Acta
                     </button>
                 </div>
+                <div class="filter-container">
+                    <div class="form-group">
+                        <label for="filterCiudad">Filtrar por Ciudad</label>
+                        <select id="filterCiudad">
+                            <option value="">Todas las ciudades</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="filterAgente">Filtrar por Agente</label>
+                        <select id="filterAgente">
+                            <option value="">Todos los agentes</option>
+                        </select>
+                    </div>
+                    <button id="clearFiltersBtn" class="btn btn-secondary">
+                        <i class="fas fa-times"></i>
+                        Limpiar Filtros
+                    </button>
+                </div>
                 <div class="table-container">
                     <table id="actasTable" class="data-table">
                         <thead>
@@ -246,6 +264,21 @@
                             </button>
                         </form>
                     </div>
+                    <div class="settings-card">
+                        <h3>Gestión de Agentes/Clientes</h3>
+                        <div id="agentsContainer" class="agent-list">
+                            <!-- Agentes se cargarán aquí -->
+                        </div>
+                        <form id="addAgentForm" class="form-row">
+                            <div class="form-group">
+                                <label for="newAgentName">Nombre del Agente/Cliente</label>
+                                <input type="text" id="newAgentName" placeholder="Ej: Juan Pérez" required>
+                            </div>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-plus"></i> Añadir Agente
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </section>
         </main>
@@ -278,12 +311,11 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="agente">Agente/Courier</label>
-                                <input type="text" id="agente" name="agente" required>
+                                <select id="agente" name="agente" required>
+                                    <option value="">Seleccionar agente</option>
+                                </select>
                             </div>
-                            <div class="form-group">
-                                <label for="destino">Destino</label>
-                                <input type="text" id="destino" name="destino">
-                            </div>
+                            
                         </div>
                         <div class="form-row">
                             <div class="form-group">

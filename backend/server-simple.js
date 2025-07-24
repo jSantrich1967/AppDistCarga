@@ -49,10 +49,7 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Servir archivos estáticos del frontend
-const frontendPath = path.join(__dirname, '../frontend');
-console.log('Frontend path:', frontendPath);
-app.use(express.static(frontendPath));
+
 
 // Base de datos en memoria usando archivo JSON
 let db = {};
@@ -73,7 +70,8 @@ function loadDatabase() {
             actas: [],
             invoices: [],
             payments: [],
-            cityRates: {}
+            cityRates: {},
+            agents: []
         };
     }
 }
@@ -275,6 +273,72 @@ app.put('/api/city-rates', authenticateToken, authorizeRoles(['admin']), async (
         db.cityRates = { ...db.cityRates, ...req.body };
         saveDatabase();
         res.json({ message: 'Rates updated successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Agent Routes
+app.get('/api/agents', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
+    try {
+        res.json(db.agents || []);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.post('/api/agents', authenticateToken, authorizeRoles(['admin']),
+    body('name').notEmpty().withMessage('El nombre del agente es requerido'),
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+        try {
+            const newAgent = {
+                id: Date.now().toString(), // Simple ID for development
+                name: req.body.name,
+                createdAt: new Date().toISOString()
+            };
+            db.agents.push(newAgent);
+            saveDatabase();
+            res.status(201).json(newAgent);
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+);
+
+app.put('/api/agents/:id', authenticateToken, authorizeRoles(['admin']),
+    body('name').notEmpty().withMessage('El nombre del agente es requerido'),
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+        try {
+            const agentIndex = db.agents.findIndex(a => a.id === req.params.id);
+            if (agentIndex === -1) {
+                return res.status(404).json({ message: 'Agente no encontrado' });
+            }
+            db.agents[agentIndex] = { ...db.agents[agentIndex], name: req.body.name };
+            saveDatabase();
+            res.json(db.agents[agentIndex]);
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }
+);
+
+app.delete('/api/agents/:id', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
+    try {
+        const initialLength = db.agents.length;
+        db.agents = db.agents.filter(a => a.id !== req.params.id);
+        if (db.agents.length === initialLength) {
+            return res.status(404).json({ message: 'Agente no encontrado' });
+        }
+        saveDatabase();
+        res.status(204).send(); // No Content
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
