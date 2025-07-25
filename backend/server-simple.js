@@ -49,6 +49,9 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files from the frontend directory
+app.use(express.static(path.join(__dirname, '../frontend')));
+
 
 
 // Base de datos en memoria usando archivo JSON
@@ -356,6 +359,13 @@ app.delete('/api/agents/:id', authenticateToken, authorizeRoles(['admin']), asyn
 
 // Inicializar y arrancar servidor
 loadDatabase();
+
+// Catch-all route for serving frontend
+app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api/')) {
+        res.sendFile(path.join(__dirname, '../frontend', 'index.html'));
+    }
+});
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor corriendo en http://0.0.0.0:${PORT}`);
