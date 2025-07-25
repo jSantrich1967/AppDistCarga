@@ -4,7 +4,7 @@
   "description": "Sistema de Gestión de Actas de Despacho",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node backend/server-simple.js",
     "dev": "node server.js",
     "local": "node start.js",
     "build": "npm ci --production",
