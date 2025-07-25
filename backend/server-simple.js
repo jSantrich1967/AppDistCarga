@@ -213,6 +213,11 @@ app.get('/api/dashboard', authenticateToken, async (req, res) => {
     }
 });
 
+// Health Check
+app.get('/api/debug', (req, res) => {
+    res.status(200).json({ message: 'Backend is healthy' });
+});
+
 // Rutas de actas
 app.get('/api/actas', authenticateToken, async (req, res) => {
     try {
