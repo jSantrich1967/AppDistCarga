@@ -5,7 +5,7 @@ services:
     env: node
     plan: free
     rootDir: backend/
-    buildCommand: npm install --production
+    buildCommand: cd backend && npm install --production
     startCommand: npm start
     healthCheckPath: /api/debug
     envVars:
