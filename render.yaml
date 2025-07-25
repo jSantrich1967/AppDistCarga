@@ -4,9 +4,9 @@ services:
     name: app-dist-carga-backend
     env: node
     plan: free
-    rootDir: .
+    rootDir: backend/
     buildCommand: npm install --production
-    startCommand: node backend/server-simple.js
+    startCommand: node server-simple.js
     healthCheckPath: /api/debug
     envVars:
       - key: NODE_ENV
