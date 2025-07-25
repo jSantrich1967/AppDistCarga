@@ -218,6 +218,11 @@ app.get('/api/debug', (req, res) => {
     res.status(200).json({ message: 'Backend is healthy' });
 });
 
+// Test Route
+app.get('/api/test', (req, res) => {
+    res.status(200).json({ message: 'Test route is working!' });
+});
+
 // Rutas de actas
 app.get('/api/actas', authenticateToken, async (req, res) => {
     try {
