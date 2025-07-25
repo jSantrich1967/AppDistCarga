@@ -6,7 +6,7 @@ services:
     plan: free
     rootDir: backend/
     buildCommand: npm install --production
-    startCommand: node server-simple.js
+    startCommand: npm start
     healthCheckPath: /api/debug
     envVars:
       - key: NODE_ENV
