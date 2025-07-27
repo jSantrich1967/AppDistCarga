@@ -64,6 +64,23 @@ function loadDatabase() {
     try {
         const data = fs.readFileSync(dbPath, 'utf8');
         db = JSON.parse(data);
+        
+        // Asegurar que todas las propiedades existan
+        const requiredProperties = ['users', 'actas', 'invoices', 'payments', 'cityRates', 'agents'];
+        let needsSave = false;
+        
+        requiredProperties.forEach(prop => {
+            if (!db[prop]) {
+                db[prop] = (prop === 'cityRates') ? {} : [];
+                needsSave = true;
+                console.log(`Inicializando propiedad faltante: ${prop}`);
+            }
+        });
+        
+        if (needsSave) {
+            saveDatabase();
+        }
+        
         console.log('Base de datos cargada desde db.json');
     } catch (error) {
         console.error('Error cargando base de datos:', error);
@@ -76,6 +93,7 @@ function loadDatabase() {
             cityRates: {},
             agents: []
         };
+        saveDatabase();
     }
 }
 
@@ -292,10 +310,16 @@ app.put('/api/city-rates', authenticateToken, authorizeRoles(['admin']), async (
 });
 
 // Agent Routes
-app.get('/api/agents', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
+app.get('/api/agents', authenticateToken, async (req, res) => {
     try {
-        res.json(db.agents || []);
+        // Inicializar agents si no existe
+        if (!db.agents) {
+            db.agents = [];
+            saveDatabase();
+        }
+        res.json(db.agents);
     } catch (error) {
+        console.error('Error loading agents:', error);
         res.status(500).json({ message: error.message });
     }
 });

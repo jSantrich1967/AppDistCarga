@@ -200,18 +200,34 @@ const App = {
             ...options
         };
         
-        const response = await fetch(`${API_BASE}${endpoint}`, config);
-        
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ message: response.statusText }));
-            throw new Error(error.message || `API Error: ${response.statusText}`);
-        }
-        
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.indexOf("application/json") !== -1) {
-            return response.json();
-        } else {
-            return response.text();
+        try {
+            const response = await fetch(`${API_BASE}${endpoint}`, config);
+            
+            if (!response.ok) {
+                let errorMessage = `Error ${response.status}: ${response.statusText}`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorData.error || errorMessage;
+                } catch (e) {
+                    // Si no se puede parsear el JSON de error, usar el statusText
+                    console.warn('No se pudo parsear la respuesta de error:', e);
+                }
+                throw new Error(errorMessage);
+            }
+            
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") !== -1) {
+                return response.json();
+            } else {
+                return response.text();
+            }
+        } catch (error) {
+            // Si es un error de red o de fetch
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                throw new Error('Error de conexión: No se pudo conectar al servidor');
+            }
+            // Re-lanzar otros errores tal como están
+            throw error;
         }
     },
 
