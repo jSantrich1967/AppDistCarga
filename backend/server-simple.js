@@ -247,13 +247,22 @@ app.get('/api/test', (req, res) => {
 // Rutas de actas
 app.get('/api/actas', authenticateToken, async (req, res) => {
     try {
+        console.log(`📋 GET /api/actas - Usuario: ${req.user.username} (${req.user.role})`);
+        console.log(`📊 Total actas en DB: ${db.actas.length}`);
+        
         let actas = db.actas;
         if (req.user.role === 'courier') {
+            console.log(`🔍 Filtrando actas para courier: ${req.user.id}`);
             actas = actas.filter(acta => acta.courierId === req.user.id);
+            console.log(`📝 Actas para este courier: ${actas.length}`);
         }
+        
+        console.log(`✅ Enviando ${actas.length} actas al frontend`);
+        console.log('📋 Primeras 3 actas:', actas.slice(0, 3).map(a => ({ id: a.id, fecha: a.fecha, ciudad: a.ciudad })));
+        
         res.json(actas);
     } catch (error) {
-        console.error('Error al obtener actas:', error);
+        console.error('❌ Error al obtener actas:', error);
         res.status(500).json({ error: 'Error al obtener actas' });
     }
 });
@@ -263,8 +272,11 @@ app.post('/api/actas', authenticateToken, authorizeRoles(['admin', 'courier']),
     body('ciudad').notEmpty(),
     body('agente').notEmpty(),
     async (req, res) => {
+        console.log('📝 POST /api/actas - Recibido:', req.body);
+        
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
+            console.error('❌ Errores de validación:', errors.array());
             return res.status(400).json({ errors: errors.array() });
         }
         
@@ -273,18 +285,25 @@ app.post('/api/actas', authenticateToken, authorizeRoles(['admin', 'courier']),
                 id: Date.now().toString(), // ID simple para desarrollo
                 ...req.body,
                 createdAt: new Date(),
-                updatedAt: new Date()
+                updatedAt: new Date(),
+                status: 'pending' // Agregar estado por defecto
             };
             
             if (req.user.role === 'courier') {
                 newActa.courierId = req.user.id;
             }
             
+            console.log('💾 Guardando acta:', newActa);
+            
             db.actas.push(newActa);
             saveDatabase();
+            
+            console.log(`✅ Acta guardada. Total actas en DB: ${db.actas.length}`);
+            console.log('📋 Últimas 3 actas:', db.actas.slice(-3).map(a => ({ id: a.id, fecha: a.fecha, ciudad: a.ciudad })));
+            
             res.status(201).json(newActa);
         } catch (error) {
-            console.error('Error al crear acta:', error);
+            console.error('❌ Error al crear acta:', error);
             res.status(500).json({ error: 'Error al crear acta' });
         }
     }

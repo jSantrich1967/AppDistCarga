@@ -60,14 +60,35 @@ const App = {
         const newActaBtn = document.getElementById('newActaBtn');
         if (newActaBtn) {
             console.log('✅ Botón Nueva Acta encontrado, configurando event listener...');
+            console.log('🔍 Botón HTML:', newActaBtn.outerHTML);
+            
             newActaBtn.addEventListener('click', function(e) {
                 console.log('🖱️ Botón Nueva Acta clickeado!');
+                console.log('🎯 Event object:', e);
                 e.preventDefault();
+                e.stopPropagation();
+                
+                // Forzar apertura del modal directamente
+                console.log('🚀 Intentando abrir modal...');
                 App.showNewActaModal();
             });
+            
+            // Agregar debugging adicional
+            newActaBtn.style.border = '2px solid red';
+            newActaBtn.title = 'DEBUG: Click para abrir modal';
+            
             console.log('✅ Event listener del botón Nueva Acta configurado');
         } else {
             console.error('❌ Botón Nueva Acta (newActaBtn) NO encontrado en el DOM');
+            
+            // Buscar todos los botones que contengan "Nueva"
+            const allButtons = document.querySelectorAll('button');
+            console.log('🔍 Todos los botones encontrados:', allButtons.length);
+            allButtons.forEach((btn, index) => {
+                if (btn.textContent.includes('Nueva')) {
+                    console.log(`🎯 Botón ${index} con "Nueva":`, btn.outerHTML);
+                }
+            });
         }
         safeAddListener('filterFechaDesde', 'change', App.applyActasFilters);
         safeAddListener('filterFechaHasta', 'change', App.applyActasFilters);
@@ -213,11 +234,26 @@ const App = {
         });
         
         switch(sectionName) {
-            case 'dashboard': App.loadDashboard(); break;
-            case 'actas': App.loadActas(); break;
-            case 'invoices': App.loadInvoices(); break;
-            case 'payments': App.loadPayments(); break;
-            case 'settings': App.loadSettings(); break;
+            case 'dashboard': 
+                console.log('📊 Cargando Dashboard...');
+                App.loadDashboard(); 
+                break;
+            case 'actas': 
+                console.log('📋 Mostrando sección Actas - Cargando datos...');
+                App.loadActas(); 
+                break;
+            case 'invoices': 
+                console.log('🧾 Cargando Facturas...');
+                App.loadInvoices(); 
+                break;
+            case 'payments': 
+                console.log('💳 Cargando Pagos...');
+                App.loadPayments(); 
+                break;
+            case 'settings': 
+                console.log('⚙️ Cargando Configuración...');
+                App.loadSettings(); 
+                break;
         }
     },
 
@@ -502,7 +538,9 @@ const App = {
     // Actas Management
     loadActas: async function() {
         try {
+            console.log('📋 Cargando actas desde el backend...');
             const allActas = await App.apiCall('/actas');
+            console.log(`✅ Recibidas ${allActas.length} actas del backend:`, allActas);
             
             // Populate filter dropdowns
             App.populateFilterDropdowns(allActas);
@@ -514,6 +552,8 @@ const App = {
             const filterAgente = document.getElementById('filterAgente').value;
 
             let filteredActas = allActas;
+            
+            console.log('🔍 Aplicando filtros:', { filterFechaDesde, filterFechaHasta, filterCiudad, filterAgente });
             
             // Filtro por fecha desde
             if (filterFechaDesde) {
@@ -546,13 +586,21 @@ const App = {
             // Ordenar por fecha (más recientes primero)
             filteredActas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
+            console.log(`📊 Después del filtrado: ${filteredActas.length} actas`);
+            console.log('📋 Actas filtradas:', filteredActas);
+
             await App.updateActasTable(filteredActas);
             
             // Mostrar contador de resultados
-            document.getElementById('actasCounter').textContent = 
-                `${filteredActas.length} de ${allActas.length} actas`;
+            const counter = document.getElementById('actasCounter');
+            if (counter) {
+                counter.textContent = `${filteredActas.length} de ${allActas.length} actas`;
+                console.log(`📊 Contador actualizado: ${filteredActas.length} de ${allActas.length} actas`);
+            } else {
+                console.warn('⚠️ Elemento actasCounter no encontrado');
+            }
         } catch (error) {
-            console.error('Error loading actas:', error);
+            console.error('❌ Error loading actas:', error);
         }
     },
 
@@ -680,24 +728,46 @@ const App = {
     },
 
     updateActasTable: async function(actas) {
+        console.log(`🏗️ Actualizando tabla con ${actas.length} actas`);
+        
         const tbody = document.querySelector('#actasTable tbody');
+        if (!tbody) {
+            console.error('❌ No se encontró el tbody de la tabla de actas');
+            return;
+        }
+        
+        console.log('🧹 Limpiando tabla actual...');
         tbody.innerHTML = '';
 
         // Cargar facturas para mostrar información relacionada
         let invoices = [];
         try {
+            console.log('💰 Cargando facturas para relacionar...');
             invoices = await App.apiCall('/invoices');
+            console.log(`✅ Facturas cargadas: ${invoices.length}`);
         } catch (error) {
-            console.warn('No se pudieron cargar las facturas para mostrar en actas');
+            console.warn('⚠️ No se pudieron cargar las facturas para mostrar en actas:', error);
         }
 
-        actas.forEach(acta => {
+        if (actas.length === 0) {
+            console.log('📝 No hay actas para mostrar');
+            const row = tbody.insertRow();
+            row.innerHTML = '<td colspan="8" style="text-align: center; padding: 20px; color: #666;">No hay actas registradas</td>';
+            return;
+        }
+
+        console.log('🔄 Procesando cada acta...');
+        actas.forEach((acta, index) => {
+            console.log(`📄 Procesando acta ${index + 1}:`, acta);
+            
             // Buscar la factura relacionada con esta acta
             const invoice = invoices.find(inv => inv.actaId === acta.id);
             
             // Calcular número de guías y total
             const numGuias = acta.guides ? acta.guides.length : 0;
             const total = acta.guides ? acta.guides.reduce((sum, guide) => sum + (parseFloat(guide.subtotal) || 0), 0) : 0;
+            
+            console.log(`📊 Acta ${acta.id}: ${numGuias} guías, total $${total.toFixed(2)}, factura: ${invoice ? 'Sí' : 'No'}`);
             
             const row = tbody.insertRow();
             row.innerHTML = `
@@ -722,6 +792,8 @@ const App = {
                 </td>
             `;
         });
+        
+        console.log(`✅ Tabla actualizada con ${actas.length} filas`);
     },
 
     showNewActaModal: async function() {
@@ -1024,10 +1096,24 @@ const App = {
                 }
             }
             
+            console.log('🔄 Cerrando modal y recargando datos...');
             App.closeModals();
-            App.loadActas();
-            App.loadInvoices(); // Recargar facturas también
-            App.loadDashboard();
+            
+            console.log('🔄 Recargando actas...');
+            await App.loadActas();
+            
+            console.log('🔄 Recargando facturas...');
+            await App.loadInvoices(); // Recargar facturas también
+            
+            console.log('🔄 Recargando dashboard...');
+            await App.loadDashboard();
+            
+            // Forzar actualización de la vista de actas si estamos en esa sección
+            const activeSection = document.querySelector('.content-section.active');
+            if (activeSection && activeSection.id === 'actasSection') {
+                console.log('📋 Forzando actualización de vista de actas...');
+                setTimeout(() => App.loadActas(), 500); // Recarga adicional después de 500ms
+            }
             
             const message = currentActa ? 'Acta actualizada exitosamente' : 'Acta creada y factura generada exitosamente';
             alert(message);
@@ -1227,6 +1313,43 @@ const App = {
         } catch (error) {
             console.error('❌ Error creando acta de prueba:', error);
             throw error;
+        }
+    },
+
+    debugActasSystem: async function() {
+        console.log('🔍 === DIAGNÓSTICO COMPLETO DEL SISTEMA DE ACTAS ===');
+        
+        try {
+            // 1. Verificar botón Nueva Acta
+            const btn = document.getElementById('newActaBtn');
+            console.log('1️⃣ Botón Nueva Acta:', btn ? '✅ Encontrado' : '❌ No encontrado');
+            
+            // 2. Verificar tabla de actas
+            const table = document.querySelector('#actasTable tbody');
+            console.log('2️⃣ Tabla de actas:', table ? '✅ Encontrada' : '❌ No encontrada');
+            
+            // 3. Cargar actas del backend
+            console.log('3️⃣ Cargando actas del backend...');
+            const actas = await App.apiCall('/actas');
+            console.log(`✅ ${actas.length} actas en el backend:`, actas);
+            
+            // 4. Verificar facturas
+            console.log('4️⃣ Cargando facturas del backend...');
+            const invoices = await App.apiCall('/invoices');
+            console.log(`✅ ${invoices.length} facturas en el backend:`, invoices);
+            
+            // 5. Forzar recarga de la tabla
+            console.log('5️⃣ Forzando actualización de la tabla...');
+            await App.updateActasTable(actas);
+            
+            // 6. Verificar contador
+            const counter = document.getElementById('actasCounter');
+            console.log('6️⃣ Contador de actas:', counter ? `✅ ${counter.textContent}` : '❌ No encontrado');
+            
+            console.log('🏁 === FIN DEL DIAGNÓSTICO ===');
+            
+        } catch (error) {
+            console.error('❌ Error en diagnóstico:', error);
         }
     },
 
