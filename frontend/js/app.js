@@ -29,29 +29,54 @@ const App = {
 
     // Event Listeners
     setupEventListeners: function() {
+        // Solo configurar los event listeners que existen en la pantalla de login
         loginForm.addEventListener('submit', App.handleLogin);
-        document.getElementById('logoutBtn').addEventListener('click', App.handleLogout);
+    },
+
+    // Configurar event listeners de la pantalla principal
+    setupMainScreenListeners: function() {
+        // Configurar event listeners solo si los elementos existen
+        const safeAddListener = (id, event, handler) => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener(event, handler);
+            } else {
+                console.warn(`Elemento con ID '${id}' no encontrado para agregar event listener`);
+            }
+        };
+
+        // Event listeners principales
+        safeAddListener('logoutBtn', 'click', App.handleLogout);
+        
+        // Navegación
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const section = e.target.dataset.section;
                 App.showSection(section);
             });
         });
-        // Event listener para el botón de Nueva Acta
-        document.getElementById('newActaBtn').addEventListener('click', App.showNewActaModal);
-        document.getElementById('filterCiudad').addEventListener('change', App.applyActasFilters);
-        document.getElementById('filterAgente').addEventListener('change', App.applyActasFilters);
-        document.getElementById('clearFiltersBtn').addEventListener('click', App.clearActasFilters);
+
+        // Actas
+        safeAddListener('newActaBtn', 'click', App.showNewActaModal);
+        safeAddListener('filterCiudad', 'change', App.applyActasFilters);
+        safeAddListener('filterAgente', 'change', App.applyActasFilters);
+        safeAddListener('clearFiltersBtn', 'click', App.clearActasFilters);
+        
+        // Modales
         document.querySelectorAll('.modal-close').forEach(btn => {
             btn.addEventListener('click', App.closeModals);
         });
-        document.getElementById('actaForm').addEventListener('submit', App.handleActaSubmit);
-        document.getElementById('cancelActaBtn').addEventListener('click', App.closeModals);
-        document.getElementById('addGuideBtn').addEventListener('click', () => App.addGuideRow());
-        document.getElementById('paymentForm').addEventListener('submit', App.handlePaymentSubmit);
-        document.getElementById('saveCityRatesBtn').addEventListener('click', App.saveCityRates);
-        document.getElementById('addCityForm').addEventListener('submit', App.handleAddCity);
-        document.getElementById('addAgentForm').addEventListener('submit', App.handleAddAgent);
+        
+        // Formularios
+        safeAddListener('actaForm', 'submit', App.handleActaSubmit);
+        safeAddListener('cancelActaBtn', 'click', App.closeModals);
+        safeAddListener('addGuideBtn', 'click', () => App.addGuideRow());
+        safeAddListener('paymentForm', 'submit', App.handlePaymentSubmit);
+        safeAddListener('saveCityRatesBtn', 'click', App.saveCityRates);
+        safeAddListener('addCityForm', 'submit', App.handleAddCity);
+        safeAddListener('addAgentForm', 'submit', App.handleAddAgent);
+        
+        // Modales click fuera para cerrar
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
@@ -59,6 +84,8 @@ const App = {
                 }
             });
         });
+
+        console.log('Event listeners de pantalla principal configurados correctamente');
     },
 
     // Autenticación
@@ -152,6 +179,9 @@ const App = {
         
         document.getElementById('userInfo').textContent = 
             `${currentUser.name} (${currentUser.role === 'admin' ? 'Administrador' : 'Courier'})`;
+        
+        // Configurar event listeners de la pantalla principal
+        App.setupMainScreenListeners();
         
         // Cargar datos esenciales al iniciar la pantalla principal
         await App.loadCityRates(); // Cargar tarifas de ciudades
@@ -544,6 +574,16 @@ const App = {
     },
 
     showNewActaModal: async function() {
+        console.log('🚀 Abriendo modal de Nueva Acta...');
+        
+        // Verificar que el modal existe
+        const modal = document.getElementById('actaModal');
+        if (!modal) {
+            console.error('❌ Modal actaModal no encontrado en el DOM');
+            alert('Error: No se pudo abrir el modal. Revisa la consola para más detalles.');
+            return;
+        }
+
         // Asegurar que el loading overlay esté cerrado antes de mostrar el modal
         App.showLoading(false);
 
@@ -552,18 +592,26 @@ const App = {
         
         // Cargar y actualizar la lista de agentes más reciente
         try {
+            console.log('📥 Cargando agentes...');
             const agents = await App.apiCall('/agents');
             App.updateAgentSelects(agents);
+            console.log('✅ Agentes cargados:', agents.length);
         } catch (error) {
-            console.error('Error loading agents for modal:', error);
+            console.error('❌ Error loading agents for modal:', error);
         }
 
         currentActa = null;
         document.getElementById('actaModalTitle').textContent = 'Nueva Acta de Despacho';
         document.getElementById('actaForm').reset();
-        document.querySelector('#guidesTable tbody').innerHTML = '';
+        
+        const guidesTableBody = document.querySelector('#guidesTable tbody');
+        if (guidesTableBody) {
+            guidesTableBody.innerHTML = '';
+        }
+        
         App.updateTotal();
-        document.getElementById('actaModal').classList.add('active');
+        modal.classList.add('active');
+        console.log('✅ Modal abierto correctamente');
     },
 
     editActa: async function(actaId) {
