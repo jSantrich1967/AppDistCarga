@@ -37,6 +37,8 @@ const App = {
                 App.showSection(section);
             });
         });
+        // Event listener para el botón de Nueva Acta
+        document.getElementById('newActaBtn').addEventListener('click', App.showNewActaModal);
         document.getElementById('filterCiudad').addEventListener('change', App.applyActasFilters);
         document.getElementById('filterAgente').addEventListener('change', App.applyActasFilters);
         document.getElementById('clearFiltersBtn').addEventListener('click', App.clearActasFilters);
@@ -294,7 +296,17 @@ const App = {
             });
             nameInput.value = '';
             alert('Agente añadido exitosamente.');
-            App.loadAgents(); // Recargar la lista de agentes
+            
+            // Recargar y actualizar inmediatamente toda la UI de agentes
+            await App.loadAgents(); // Recarga la lista en configuración
+            
+            // También actualizar inmediatamente todos los selects de agentes en la aplicación
+            try {
+                const agents = await App.apiCall('/agents');
+                App.updateAgentSelects(agents);
+            } catch (error) {
+                console.error('Error updating agent selects after add:', error);
+            }
         } catch (error) {
             console.error('Error adding agent:', error);
             alert('Error al añadir el agente.');
@@ -311,7 +323,17 @@ const App = {
                     method: 'DELETE'
                 });
                 alert('Agente eliminado exitosamente.');
-                App.loadAgents(); // Recargar la lista de agentes
+                
+                // Recargar y actualizar inmediatamente toda la UI de agentes
+                await App.loadAgents(); // Recarga la lista en configuración
+                
+                // También actualizar inmediatamente todos los selects de agentes en la aplicación
+                try {
+                    const agents = await App.apiCall('/agents');
+                    App.updateAgentSelects(agents);
+                } catch (error) {
+                    console.error('Error updating agent selects after delete:', error);
+                }
             } catch (error) {
                 console.error('Error deleting agent:', error);
                 alert('Error al eliminar el agente.');
@@ -521,12 +543,20 @@ const App = {
         });
     },
 
-    showNewActaModal: function() {
+    showNewActaModal: async function() {
         // Asegurar que el loading overlay esté cerrado antes de mostrar el modal
         App.showLoading(false);
 
-        // Forzar la actualización del selector de ciudades justo antes de mostrar el modal
+        // Forzar la actualización de selectores justo antes de mostrar el modal
         App.updateCitySelects();
+        
+        // Cargar y actualizar la lista de agentes más reciente
+        try {
+            const agents = await App.apiCall('/agents');
+            App.updateAgentSelects(agents);
+        } catch (error) {
+            console.error('Error loading agents for modal:', error);
+        }
 
         currentActa = null;
         document.getElementById('actaModalTitle').textContent = 'Nueva Acta de Despacho';
@@ -542,6 +572,15 @@ const App = {
             currentActa = acta;
             
             if (currentActa) {
+                // Actualizar selectores con datos más recientes
+                App.updateCitySelects();
+                try {
+                    const agents = await App.apiCall('/agents');
+                    App.updateAgentSelects(agents);
+                } catch (error) {
+                    console.error('Error loading agents for edit modal:', error);
+                }
+                
                 document.getElementById('actaModalTitle').textContent = 'Editar Acta de Despacho';
                 App.populateActaForm(currentActa);
                 document.getElementById('actaModal').classList.add('active');
