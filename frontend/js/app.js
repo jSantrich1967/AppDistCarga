@@ -56,8 +56,19 @@ const App = {
             });
         });
 
-        // Actas
-        safeAddListener('newActaBtn', 'click', App.showNewActaModal);
+        // Actas - Con debugging adicional
+        const newActaBtn = document.getElementById('newActaBtn');
+        if (newActaBtn) {
+            console.log('✅ Botón Nueva Acta encontrado, configurando event listener...');
+            newActaBtn.addEventListener('click', function(e) {
+                console.log('🖱️ Botón Nueva Acta clickeado!');
+                e.preventDefault();
+                App.showNewActaModal();
+            });
+            console.log('✅ Event listener del botón Nueva Acta configurado');
+        } else {
+            console.error('❌ Botón Nueva Acta (newActaBtn) NO encontrado en el DOM');
+        }
         safeAddListener('filterCiudad', 'change', App.applyActasFilters);
         safeAddListener('filterAgente', 'change', App.applyActasFilters);
         safeAddListener('clearFiltersBtn', 'click', App.clearActasFilters);
@@ -660,13 +671,29 @@ const App = {
     },
 
     handleActaSubmit: async function(e) {
+        console.log('📝 Formulario de acta enviado');
         e.preventDefault();
         
         const formData = new FormData(e.target);
         const actaData = Object.fromEntries(formData.entries());
         
+        console.log('📋 Datos del formulario:', actaData);
+        
+        // Validación básica
+        if (!actaData.fecha || !actaData.ciudad || !actaData.agente) {
+            alert('Por favor, completa todos los campos obligatorios: Fecha, Ciudad y Agente.');
+            console.error('❌ Campos obligatorios faltantes:', { 
+                fecha: actaData.fecha, 
+                ciudad: actaData.ciudad, 
+                agente: actaData.agente 
+            });
+            return;
+        }
+        
         actaData.guides = [];
         const rows = document.querySelectorAll('#guidesTable tbody tr');
+        console.log(`📦 Procesando ${rows.length} filas de guías`);
+        
         rows.forEach(row => {
             const guide = {};
             row.querySelectorAll('input, select').forEach(input => {
@@ -678,18 +705,27 @@ const App = {
             }
         });
         
+        console.log(`✅ ${actaData.guides.length} guías válidas procesadas`);
+        console.log('🚀 Enviando acta al servidor:', actaData);
+        
         try {
+            App.showLoading(true);
             const method = currentActa ? 'PUT' : 'POST';
             const endpoint = currentActa ? `/actas/${currentActa.id}` : '/actas';
-            await App.apiCall(endpoint, { method, body: JSON.stringify(actaData) });
+            console.log(`📡 ${method} ${endpoint}`);
+            
+            const result = await App.apiCall(endpoint, { method, body: JSON.stringify(actaData) });
+            console.log('✅ Acta guardada exitosamente:', result);
             
             App.closeModals();
             App.loadActas();
             App.loadDashboard();
             alert('Acta guardada exitosamente');
         } catch (error) {
-            console.error('Error saving acta:', error);
-            alert('Error al guardar acta');
+            console.error('❌ Error saving acta:', error);
+            alert(`Error al guardar acta: ${error.message}`);
+        } finally {
+            App.showLoading(false);
         }
     },
 
@@ -848,6 +884,39 @@ const App = {
         } catch (error) {
             console.error('Error registering payment:', error);
             alert(`Error al registrar pago: ${error.message}`);
+        }
+    },
+
+    // Test Functions - Para debugging
+    testNewActaButton: function() {
+        console.log('🧪 Testing botón Nueva Acta...');
+        const btn = document.getElementById('newActaBtn');
+        if (btn) {
+            console.log('✅ Botón encontrado, simulando click...');
+            btn.click();
+        } else {
+            console.error('❌ Botón Nueva Acta no encontrado');
+        }
+    },
+
+    testCreateSimpleActa: async function() {
+        console.log('🧪 Testing creación de acta simple...');
+        try {
+            const simpleActa = {
+                fecha: new Date().toISOString().split('T')[0],
+                ciudad: 'Miami',
+                agente: 'Test Agent',
+                guides: []
+            };
+            const result = await App.apiCall('/actas', {
+                method: 'POST',
+                body: JSON.stringify(simpleActa)
+            });
+            console.log('✅ Acta de prueba creada:', result);
+            return result;
+        } catch (error) {
+            console.error('❌ Error creando acta de prueba:', error);
+            throw error;
         }
     },
 
