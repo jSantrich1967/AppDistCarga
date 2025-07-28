@@ -150,20 +150,31 @@
             <section id="actasSection" class="content-section">
                 <div class="section-header">
                     <h2>Gestión de Actas</h2>
-                    <button id="newActaBtn" class="btn btn-primary">
-                        <i class="fas fa-plus"></i>
-                        Nueva Acta
-                    </button>
+                    <div class="header-actions">
+                        <span id="actasCounter" class="counter-badge">0 actas</span>
+                        <button id="newActaBtn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            Nueva Acta
+                        </button>
+                    </div>
                 </div>
                 <div class="filter-container">
                     <div class="form-group">
-                        <label for="filterCiudad">Filtrar por Ciudad</label>
+                        <label for="filterFechaDesde">Desde</label>
+                        <input type="date" id="filterFechaDesde">
+                    </div>
+                    <div class="form-group">
+                        <label for="filterFechaHasta">Hasta</label>
+                        <input type="date" id="filterFechaHasta">
+                    </div>
+                    <div class="form-group">
+                        <label for="filterCiudad">Ciudad</label>
                         <select id="filterCiudad">
                             <option value="">Todas las ciudades</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="filterAgente">Filtrar por Agente</label>
+                        <label for="filterAgente">Agente</label>
                         <select id="filterAgente">
                             <option value="">Todos los agentes</option>
                         </select>
@@ -171,6 +182,10 @@
                     <button id="clearFiltersBtn" class="btn btn-secondary">
                         <i class="fas fa-times"></i>
                         Limpiar Filtros
+                    </button>
+                    <button id="exportActasBtn" class="btn btn-info">
+                        <i class="fas fa-download"></i>
+                        Exportar
                     </button>
                 </div>
                 <div class="table-container">
@@ -180,6 +195,9 @@
                                 <th>Fecha</th>
                                 <th>Ciudad</th>
                                 <th>Agente</th>
+                                <th># Guías</th>
+                                <th>Total</th>
+                                <th>N° Factura</th>
                                 <th>Estado</th>
                                 <th>Acciones</th>
                             </tr>

@@ -290,6 +290,88 @@ app.post('/api/actas', authenticateToken, authorizeRoles(['admin', 'courier']),
     }
 );
 
+app.get('/api/actas/:id', authenticateToken, async (req, res) => {
+    try {
+        const acta = db.actas.find(a => a.id === req.params.id);
+        if (!acta) {
+            return res.status(404).json({ error: 'Acta no encontrada' });
+        }
+        
+        // Solo admins pueden ver todas las actas, couriers solo las suyas
+        if (req.user.role === 'courier' && acta.courierId !== req.user.id) {
+            return res.status(403).json({ error: 'No tiene permisos para ver esta acta' });
+        }
+        
+        res.json(acta);
+    } catch (error) {
+        console.error('Error al obtener acta:', error);
+        res.status(500).json({ error: 'Error al obtener acta' });
+    }
+});
+
+app.put('/api/actas/:id', authenticateToken, authorizeRoles(['admin', 'courier']),
+    body('fecha').isISO8601(),
+    body('ciudad').notEmpty(),
+    body('agente').notEmpty(),
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+        
+        try {
+            const actaIndex = db.actas.findIndex(a => a.id === req.params.id);
+            if (actaIndex === -1) {
+                return res.status(404).json({ error: 'Acta no encontrada' });
+            }
+            
+            const existingActa = db.actas[actaIndex];
+            
+            // Solo admins pueden editar todas las actas, couriers solo las suyas
+            if (req.user.role === 'courier' && existingActa.courierId !== req.user.id) {
+                return res.status(403).json({ error: 'No tiene permisos para editar esta acta' });
+            }
+            
+            const updatedActa = {
+                ...existingActa,
+                ...req.body,
+                updatedAt: new Date()
+            };
+            
+            db.actas[actaIndex] = updatedActa;
+            saveDatabase();
+            res.json(updatedActa);
+        } catch (error) {
+            console.error('Error al actualizar acta:', error);
+            res.status(500).json({ error: 'Error al actualizar acta' });
+        }
+    }
+);
+
+app.delete('/api/actas/:id', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
+    try {
+        const actaIndex = db.actas.findIndex(a => a.id === req.params.id);
+        if (actaIndex === -1) {
+            return res.status(404).json({ error: 'Acta no encontrada' });
+        }
+        
+        // Verificar si tiene facturas asociadas
+        const relatedInvoices = db.invoices.filter(inv => inv.actaId === req.params.id);
+        if (relatedInvoices.length > 0) {
+            return res.status(400).json({ 
+                error: 'No se puede eliminar el acta porque tiene facturas asociadas. Elimine primero las facturas.' 
+            });
+        }
+        
+        db.actas.splice(actaIndex, 1);
+        saveDatabase();
+        res.status(204).send();
+    } catch (error) {
+        console.error('Error al eliminar acta:', error);
+        res.status(500).json({ error: 'Error al eliminar acta' });
+    }
+});
+
 // City Rates Routes
 app.get('/api/city-rates', authenticateToken, async (req, res) => {
     try {

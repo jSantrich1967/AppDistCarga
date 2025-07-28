@@ -69,9 +69,12 @@ const App = {
         } else {
             console.error('❌ Botón Nueva Acta (newActaBtn) NO encontrado en el DOM');
         }
+        safeAddListener('filterFechaDesde', 'change', App.applyActasFilters);
+        safeAddListener('filterFechaHasta', 'change', App.applyActasFilters);
         safeAddListener('filterCiudad', 'change', App.applyActasFilters);
         safeAddListener('filterAgente', 'change', App.applyActasFilters);
         safeAddListener('clearFiltersBtn', 'click', App.clearActasFilters);
+        safeAddListener('exportActasBtn', 'click', App.exportActas);
         
         // Modales
         document.querySelectorAll('.modal-close').forEach(btn => {
@@ -505,18 +508,49 @@ const App = {
             App.populateFilterDropdowns(allActas);
 
             // Apply current filters
+            const filterFechaDesde = document.getElementById('filterFechaDesde').value;
+            const filterFechaHasta = document.getElementById('filterFechaHasta').value;
             const filterCiudad = document.getElementById('filterCiudad').value;
             const filterAgente = document.getElementById('filterAgente').value;
 
             let filteredActas = allActas;
+            
+            // Filtro por fecha desde
+            if (filterFechaDesde) {
+                filteredActas = filteredActas.filter(acta => {
+                    const actaDate = new Date(acta.fecha);
+                    const fromDate = new Date(filterFechaDesde);
+                    return actaDate >= fromDate;
+                });
+            }
+            
+            // Filtro por fecha hasta
+            if (filterFechaHasta) {
+                filteredActas = filteredActas.filter(acta => {
+                    const actaDate = new Date(acta.fecha);
+                    const toDate = new Date(filterFechaHasta);
+                    return actaDate <= toDate;
+                });
+            }
+            
+            // Filtro por ciudad
             if (filterCiudad) {
                 filteredActas = filteredActas.filter(acta => acta.ciudad === filterCiudad);
             }
+            
+            // Filtro por agente
             if (filterAgente) {
                 filteredActas = filteredActas.filter(acta => acta.agente === filterAgente);
             }
 
-            App.updateActasTable(filteredActas);
+            // Ordenar por fecha (más recientes primero)
+            filteredActas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+            await App.updateActasTable(filteredActas);
+            
+            // Mostrar contador de resultados
+            document.getElementById('actasCounter').textContent = 
+                `${filteredActas.length} de ${allActas.length} actas`;
         } catch (error) {
             console.error('Error loading actas:', error);
         }
@@ -560,25 +594,131 @@ const App = {
     },
 
     clearActasFilters: function() {
+        document.getElementById('filterFechaDesde').value = '';
+        document.getElementById('filterFechaHasta').value = '';
         document.getElementById('filterCiudad').value = '';
         document.getElementById('filterAgente').value = '';
         App.loadActas(); // Reload actas to show all
     },
 
-    updateActasTable: function(actas) {
+    exportActas: async function() {
+        try {
+            console.log('📊 Exportando actas...');
+            App.showLoading(true);
+            
+            // Obtener actas filtradas (mismo filtro que la tabla)
+            const allActas = await App.apiCall('/actas');
+            const invoices = await App.apiCall('/invoices');
+            
+            // Aplicar filtros actuales
+            const filterFechaDesde = document.getElementById('filterFechaDesde').value;
+            const filterFechaHasta = document.getElementById('filterFechaHasta').value;
+            const filterCiudad = document.getElementById('filterCiudad').value;
+            const filterAgente = document.getElementById('filterAgente').value;
+
+            let filteredActas = allActas;
+            
+            if (filterFechaDesde) {
+                filteredActas = filteredActas.filter(acta => new Date(acta.fecha) >= new Date(filterFechaDesde));
+            }
+            if (filterFechaHasta) {
+                filteredActas = filteredActas.filter(acta => new Date(acta.fecha) <= new Date(filterFechaHasta));
+            }
+            if (filterCiudad) {
+                filteredActas = filteredActas.filter(acta => acta.ciudad === filterCiudad);
+            }
+            if (filterAgente) {
+                filteredActas = filteredActas.filter(acta => acta.agente === filterAgente);
+            }
+            
+            // Crear CSV
+            const headers = ['Fecha', 'Ciudad', 'Agente', 'N° Guías', 'Total', 'N° Factura', 'Estado'];
+            let csvContent = headers.join(',') + '\n';
+            
+            filteredActas.forEach(acta => {
+                const invoice = invoices.find(inv => inv.actaId === acta.id);
+                const numGuias = acta.guides ? acta.guides.length : 0;
+                const total = acta.guides ? acta.guides.reduce((sum, guide) => sum + (parseFloat(guide.subtotal) || 0), 0) : 0;
+                
+                const row = [
+                    App.formatDate(acta.fecha),
+                    acta.ciudad || '',
+                    acta.agente || '',
+                    numGuias,
+                    `$${total.toFixed(2)}`,
+                    invoice ? `#${invoice.number || invoice.id}` : 'Pendiente',
+                    App.getStatusText(acta.status || 'pending')
+                ];
+                
+                csvContent += row.map(field => `"${field}"`).join(',') + '\n';
+            });
+            
+            // Descargar archivo
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            
+            const now = new Date();
+            const timestamp = now.toISOString().split('T')[0];
+            link.setAttribute('download', `actas-${timestamp}.csv`);
+            
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            console.log(`✅ Exportadas ${filteredActas.length} actas`);
+            alert(`Se exportaron ${filteredActas.length} actas exitosamente`);
+            
+        } catch (error) {
+            console.error('❌ Error exportando actas:', error);
+            alert('Error al exportar actas');
+        } finally {
+            App.showLoading(false);
+        }
+    },
+
+    updateActasTable: async function(actas) {
         const tbody = document.querySelector('#actasTable tbody');
         tbody.innerHTML = '';
 
+        // Cargar facturas para mostrar información relacionada
+        let invoices = [];
+        try {
+            invoices = await App.apiCall('/invoices');
+        } catch (error) {
+            console.warn('No se pudieron cargar las facturas para mostrar en actas');
+        }
+
         actas.forEach(acta => {
+            // Buscar la factura relacionada con esta acta
+            const invoice = invoices.find(inv => inv.actaId === acta.id);
+            
+            // Calcular número de guías y total
+            const numGuias = acta.guides ? acta.guides.length : 0;
+            const total = acta.guides ? acta.guides.reduce((sum, guide) => sum + (parseFloat(guide.subtotal) || 0), 0) : 0;
+            
             const row = tbody.insertRow();
             row.innerHTML = `
                 <td>${App.formatDate(acta.fecha)}</td>
                 <td>${acta.ciudad || '-'}</td>
                 <td>${acta.agente || '-'}</td>
-                <td><span class="status-badge status-${acta.status}">${App.getStatusText(acta.status)}</span></td>
+                <td><span class="badge badge-info">${numGuias}</span></td>
+                <td><strong>$${total.toFixed(2)}</strong></td>
+                <td>${invoice ? `<span class="badge badge-success">#${invoice.number || invoice.id}</span>` : '<span class="badge badge-warning">Pendiente</span>'}</td>
+                <td><span class="status-badge status-${acta.status || 'pending'}">${App.getStatusText(acta.status || 'pending')}</span></td>
                 <td class="actions">
-                    <button class="btn btn-secondary" onclick="App.editActa('${acta.id}')"><i class="fas fa-edit"></i> Editar</button>
-                    <button class="btn btn-success" onclick="App.generateInvoice('${acta.id}')"><i class="fas fa-receipt"></i> Facturar</button>
+                    <button class="btn btn-info btn-sm" onclick="App.viewActaDetails('${acta.id}')" title="Ver Detalles">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="App.editActa('${acta.id}')" title="Editar">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    ${!invoice ? `<button class="btn btn-success btn-sm" onclick="App.generateInvoice('${acta.id}')" title="Generar Factura"><i class="fas fa-receipt"></i></button>` : ''}
+                    <button class="btn btn-danger btn-sm" onclick="App.deleteActa('${acta.id}')" title="Eliminar">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </td>
             `;
         });
@@ -623,6 +763,158 @@ const App = {
         App.updateTotal();
         modal.classList.add('active');
         console.log('✅ Modal abierto correctamente');
+    },
+
+    viewActaDetails: async function(actaId) {
+        try {
+            const acta = await App.apiCall(`/actas/${actaId}`);
+            
+            // Buscar la factura relacionada
+            let invoice = null;
+            try {
+                const invoices = await App.apiCall('/invoices');
+                invoice = invoices.find(inv => inv.actaId === actaId);
+            } catch (error) {
+                console.warn('No se pudo cargar información de factura');
+            }
+            
+            // Crear el contenido del modal de detalles
+            const total = acta.guides ? acta.guides.reduce((sum, guide) => sum + (parseFloat(guide.subtotal) || 0), 0) : 0;
+            const guidesHTML = acta.guides ? acta.guides.map(guide => `
+                <tr>
+                    <td>${guide.noGuia}</td>
+                    <td>${guide.nombreCliente}</td>
+                    <td>${guide.direccion}</td>
+                    <td>${guide.telefono}</td>
+                    <td>${guide.bultos}</td>
+                    <td>${guide.pies}</td>
+                    <td>${guide.kgs}</td>
+                    <td>${guide.via}</td>
+                    <td>$${(guide.subtotal || 0).toFixed(2)}</td>
+                </tr>
+            `).join('') : '<tr><td colspan="9">No hay guías registradas</td></tr>';
+            
+            const detailsHTML = `
+                <div class="acta-details">
+                    <div class="details-header">
+                        <h3>Acta de Despacho - ${App.formatDate(acta.fecha)}</h3>
+                        <p><strong>ID:</strong> ${acta.id}</p>
+                        ${invoice ? `<p><strong>Factura:</strong> #${invoice.number || invoice.id} - ${App.getStatusText(invoice.status)}</p>` : '<p><strong>Factura:</strong> <span class="text-warning">Pendiente de generación</span></p>'}
+                    </div>
+                    
+                    <div class="details-info">
+                        <div class="info-row">
+                            <div class="info-col">
+                                <strong>Ciudad:</strong> ${acta.ciudad || 'No especificada'}
+                            </div>
+                            <div class="info-col">
+                                <strong>Agente:</strong> ${acta.agente || 'No especificado'}
+                            </div>
+                        </div>
+                        
+                        <div class="info-row">
+                            <div class="info-col">
+                                <strong>Camión:</strong> ${acta.modeloCamion || 'No especificado'} ${acta.anioCamion || ''} - ${acta.placaCamion || 'Sin placa'}
+                            </div>
+                        </div>
+                        
+                        <div class="info-row">
+                            <div class="info-col">
+                                <strong>Chofer:</strong> ${acta.nombreChofer || 'No especificado'} - ${acta.telefonoChofer || 'Sin teléfono'}
+                            </div>
+                            <div class="info-col">
+                                <strong>Ayudante:</strong> ${acta.nombreAyudante || 'No especificado'} - ${acta.telefonoAyudante || 'Sin teléfono'}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="details-guides">
+                        <h4>Guías de Envío</h4>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>N° Guía</th>
+                                    <th>Cliente</th>
+                                    <th>Dirección</th>
+                                    <th>Teléfono</th>
+                                    <th>Bultos</th>
+                                    <th>Pies³</th>
+                                    <th>Kgs</th>
+                                    <th>Vía</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${guidesHTML}
+                            </tbody>
+                            <tfoot>
+                                <tr class="total-row">
+                                    <th colspan="8">TOTAL GENERAL:</th>
+                                    <th>$${total.toFixed(2)}</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            // Mostrar en un modal o alert (por ahora usamos alert, luego podemos crear un modal dedicado)
+            const newWindow = window.open('', '_blank', 'width=800,height=600');
+            newWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Detalles del Acta - ${acta.id}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        .acta-details { max-width: 800px; margin: 0 auto; }
+                        .details-header { border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
+                        .info-row { display: flex; margin-bottom: 10px; }
+                        .info-col { flex: 1; margin-right: 20px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f8f9fa; }
+                        .total-row th { background-color: #007bff; color: white; }
+                        .text-warning { color: #ffc107; }
+                        @media print {
+                            body { margin: 0; }
+                            .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${detailsHTML}
+                    <div class="no-print" style="margin-top: 20px; text-align: center;">
+                        <button onclick="window.print()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Imprimir</button>
+                        <button onclick="window.close()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;">Cerrar</button>
+                    </div>
+                </body>
+                </html>
+            `);
+            
+        } catch (error) {
+            console.error('Error loading acta details:', error);
+            alert('Error al cargar los detalles del acta');
+        }
+    },
+
+    deleteActa: async function(actaId) {
+        if (confirm('¿Estás seguro de que quieres eliminar esta acta? Esta acción no se puede deshacer.')) {
+            try {
+                App.showLoading(true);
+                await App.apiCall(`/actas/${actaId}`, {
+                    method: 'DELETE'
+                });
+                alert('Acta eliminada exitosamente');
+                App.loadActas();
+                App.loadDashboard();
+            } catch (error) {
+                console.error('Error deleting acta:', error);
+                alert(`Error al eliminar acta: ${error.message}`);
+            } finally {
+                App.showLoading(false);
+            }
+        }
     },
 
     editActa: async function(actaId) {
@@ -717,10 +1009,28 @@ const App = {
             const result = await App.apiCall(endpoint, { method, body: JSON.stringify(actaData) });
             console.log('✅ Acta guardada exitosamente:', result);
             
+            // Generar factura automáticamente para actas nuevas
+            if (!currentActa && result.id) {
+                console.log('🧾 Generando factura automáticamente...');
+                try {
+                    await App.apiCall('/invoices', {
+                        method: 'POST',
+                        body: JSON.stringify({ actaId: result.id })
+                    });
+                    console.log('✅ Factura generada automáticamente');
+                } catch (invoiceError) {
+                    console.error('❌ Error generando factura automática:', invoiceError);
+                    // No fallar si la factura no se puede generar
+                }
+            }
+            
             App.closeModals();
             App.loadActas();
+            App.loadInvoices(); // Recargar facturas también
             App.loadDashboard();
-            alert('Acta guardada exitosamente');
+            
+            const message = currentActa ? 'Acta actualizada exitosamente' : 'Acta creada y factura generada exitosamente';
+            alert(message);
         } catch (error) {
             console.error('❌ Error saving acta:', error);
             alert(`Error al guardar acta: ${error.message}`);
