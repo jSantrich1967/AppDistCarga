@@ -1201,6 +1201,117 @@ ${invoice.notes}
         console.log('printInvoice called for invoice ID:', invoiceId);
     },
 
+    viewPaymentDetails: async function(paymentId) {
+        try {
+            const payment = await App.apiCall(`/payments/${paymentId}`);
+            
+            const details = `
+RECIBO DE PAGO #${payment.id}
+============================
+
+📅 INFORMACIÓN DEL PAGO:
+• Fecha del pago: ${App.formatDate(payment.fecha)}
+• Fecha de registro: ${App.formatDate(payment.fechaRegistro)}
+• Concepto: ${payment.concepto}
+• Referencia: ${payment.referencia}
+• Método de pago: ${payment.metodoPago}
+• Estado: ${payment.estado}
+
+💰 MONTO:
+• Cantidad pagada: $${payment.monto.toFixed(2)}
+
+🧾 FACTURA RELACIONADA:
+• Número de factura: ${payment.facturaNumero}
+• Total de la factura: $${payment.facturaTotal.toFixed(2)}
+
+📝 NOTAS:
+${payment.notas || 'Sin notas adicionales'}
+
+═══════════════════════════
+ID del pago: ${payment.id}
+Registrado: ${App.formatDate(payment.createdAt)}
+            `;
+            
+            alert(details.trim());
+            
+            // Copiar al portapapeles
+            if (navigator.clipboard) {
+                try {
+                    await navigator.clipboard.writeText(details.trim());
+                    console.log('Recibo copiado al portapapeles');
+                } catch (err) {
+                    console.log('No se pudo copiar al portapapeles');
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error loading payment details:', error);
+            alert('Error al cargar los detalles del pago: ' + error.message);
+        }
+    },
+
+    printPaymentReceipt: async function(paymentId) {
+        try {
+            const payment = await App.apiCall(`/payments/${paymentId}`);
+            
+            const receipt = `
+=======================================
+         RECIBO DE PAGO OFICIAL
+=======================================
+
+Recibo #: ${payment.id}
+Fecha: ${App.formatDate(payment.fecha)}
+
+---------------------------------------
+DETALLES DEL PAGO:
+---------------------------------------
+Concepto: ${payment.concepto}
+Referencia: ${payment.referencia}
+Método: ${payment.metodoPago}
+
+Monto pagado: $${payment.monto.toFixed(2)}
+
+---------------------------------------
+FACTURA:
+---------------------------------------
+Número: ${payment.facturaNumero}
+Total factura: $${payment.facturaTotal.toFixed(2)}
+
+---------------------------------------
+NOTAS:
+---------------------------------------
+${payment.notas || 'Sin observaciones'}
+
+---------------------------------------
+Sistema de Distribución de Carga
+${App.formatDate(payment.createdAt)}
+=======================================
+            `;
+            
+            // Crear ventana de impresión
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Recibo de Pago ${payment.id}</title>
+                    <style>
+                        body { font-family: 'Courier New', monospace; margin: 20px; }
+                        pre { white-space: pre-wrap; font-size: 12px; }
+                    </style>
+                </head>
+                <body onload="window.print(); window.close();">
+                    <pre>${receipt}</pre>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            
+        } catch (error) {
+            console.error('Error printing payment receipt:', error);
+            alert('Error al imprimir el recibo: ' + error.message);
+        }
+    },
+
     // Payments Management
     loadPayments: async function() {
         try {
@@ -1214,44 +1325,147 @@ ${invoice.notes}
     updatePaymentsTable: function(payments) {
         const tbody = document.querySelector('#paymentsTable tbody');
         tbody.innerHTML = '';
+        
+        if (payments.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">No hay pagos registrados</td></tr>';
+            return;
+        }
+        
         payments.forEach(payment => {
             const row = tbody.insertRow();
+            
+            // Manejar compatibilidad con formato anterior y nuevo
+            const fecha = payment.fecha || App.formatDate(payment.createdAt);
+            const concepto = payment.concepto || 'Pago de factura';
+            const referencia = payment.referencia || '-';
+            const monto = payment.monto || payment.amount || 0;
+            const facturaNumero = payment.facturaNumero || payment.invoiceId;
+            const metodoPago = payment.metodoPago || 'No especificado';
+            const estado = payment.estado || 'completado';
+            
             row.innerHTML = `
-                <td>${App.formatDate(payment.createdAt)}</td>
-                <td>${payment.invoiceId}</td>
-                <td>$${payment.amount.toFixed(2)}</td>
-                <td>${payment.description || '-'}</td>
+                <td><strong>${App.formatDate(fecha)}</strong></td>
+                <td>${concepto}</td>
+                <td><code>${referencia}</code></td>
+                <td><strong style="color: #198754;">$${parseFloat(monto).toFixed(2)}</strong></td>
+                <td>${facturaNumero}</td>
+                <td>${metodoPago}</td>
+                <td><span class="status-badge status-${estado === 'completado' ? 'paid' : estado}">${estado}</span></td>
+                <td class="actions">
+                    <button class="btn btn-info btn-sm" onclick="App.viewPaymentDetails('${payment.id}')" title="Ver Detalles">👁️</button>
+                    <button class="btn btn-secondary btn-sm" onclick="App.printPaymentReceipt('${payment.id}')" title="Imprimir Recibo">🧾</button>
+                </td>
             `;
         });
     },
 
-    showPaymentModal: function(invoiceId) {
-        // Asegurar que el loading overlay esté cerrado antes de mostrar el modal
-        App.showLoading(false);
-        document.getElementById('paymentInvoiceId').value = invoiceId;
-        document.getElementById('paymentForm').reset();
-        document.getElementById('paymentModal').classList.add('active');
+    showPaymentModal: async function(invoiceId) {
+        try {
+            // Asegurar que el loading overlay esté cerrado antes de mostrar el modal
+            App.showLoading(false);
+            
+            // Obtener información de la factura
+            const invoice = await App.apiCall(`/invoices/${invoiceId}`);
+            
+            // Configurar formulario
+            document.getElementById('paymentInvoiceId').value = invoiceId;
+            document.getElementById('paymentForm').reset();
+            
+            // Mostrar información de la factura
+            const invoiceInfoDiv = document.getElementById('paymentInvoiceInfo');
+            invoiceInfoDiv.innerHTML = `
+                <h4>🧾 Información de la Factura</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                    <div><strong>Número:</strong> ${invoice.number}</div>
+                    <div><strong>Fecha:</strong> ${App.formatDate(invoice.fecha)}</div>
+                    <div><strong>Ciudad:</strong> ${invoice.ciudad}</div>
+                    <div><strong>Agente:</strong> ${invoice.agente}</div>
+                    <div><strong>Total a pagar:</strong> <span style="color: #d63384; font-weight: bold;">$${invoice.total.toFixed(2)}</span></div>
+                    <div><strong>Estado:</strong> ${App.getStatusText(invoice.status)}</div>
+                </div>
+            `;
+            
+            // Establecer valores por defecto
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('paymentDate').value = today;
+            document.getElementById('paymentAmount').value = invoice.total.toFixed(2);
+            
+            // Pre-seleccionar concepto por defecto
+            const conceptSelect = document.getElementById('paymentConcept');
+            conceptSelect.value = 'Pago total de factura';
+            
+            // Pre-seleccionar método de pago por defecto
+            const methodSelect = document.getElementById('paymentMethod');
+            methodSelect.value = 'Transferencia bancaria';
+            
+            // Establecer referencia sugerida
+            const referenceInput = document.getElementById('paymentReference');
+            referenceInput.placeholder = `Ref. para ${invoice.number}`;
+            
+            // Mostrar modal
+            document.getElementById('paymentModal').classList.add('active');
+            
+        } catch (error) {
+            console.error('Error loading invoice for payment:', error);
+            alert('Error al cargar la información de la factura: ' + error.message);
+        }
     },
 
     handlePaymentSubmit: async function(e) {
         e.preventDefault();
         const formData = new FormData(e.target);
-        const paymentData = Object.fromEntries(formData.entries());
+        const rawData = Object.fromEntries(formData.entries());
+        
+        // Validar campos requeridos
+        if (!rawData.fecha || !rawData.monto || !rawData.concepto || !rawData.referencia) {
+            alert('Por favor complete todos los campos requeridos (marcados con *)');
+            return;
+        }
+        
+        // Validar monto
+        const monto = parseFloat(rawData.monto);
+        if (isNaN(monto) || monto <= 0) {
+            alert('El monto debe ser un número mayor que 0');
+            return;
+        }
+        
+        // Preparar datos del pago con estructura completa
+        const paymentData = {
+            invoiceId: rawData.invoiceId,
+            fecha: rawData.fecha,
+            monto: monto,
+            concepto: rawData.concepto,
+            referencia: rawData.referencia,
+            metodoPago: rawData.metodoPago || 'Transferencia bancaria',
+            notas: rawData.notas || '',
+            
+            // Campos adicionales para el sistema
+            fechaRegistro: new Date().toISOString(),
+            estado: 'completado'
+        };
         
         try {
+            App.showLoading(true);
+            
             await App.apiCall('/payments', {
                 method: 'POST',
                 body: JSON.stringify(paymentData)
             });
             
+            App.showLoading(false);
             App.closeModals();
+            
+            // Recargar datos
             App.loadPayments();
             App.loadInvoices();
             App.loadDashboard();
-            alert('Pago registrado exitosamente');
+            
+            alert(`✅ Pago registrado exitosamente!\n\n📋 Detalles:\n• Fecha: ${paymentData.fecha}\n• Concepto: ${paymentData.concepto}\n• Referencia: ${paymentData.referencia}\n• Monto: $${paymentData.monto.toFixed(2)}`);
+            
         } catch (error) {
+            App.showLoading(false);
             console.error('Error registering payment:', error);
-            alert(`Error al registrar pago: ${error.message}`);
+            alert(`❌ Error al registrar pago: ${error.message}`);
         }
     },
 
@@ -1417,6 +1631,82 @@ ESTADO DEL SISTEMA
             
         } catch (error) {
             console.error('Error en test completo:', error);
+            alert('❌ Error en test: ' + error.message);
+        }
+    },
+
+    // Test del flujo completo: Acta → Factura → Pago
+    testFullPaymentFlow: async function() {
+        try {
+            alert('🧪 Iniciando test completo: Acta → Factura → Pago');
+            
+            // 1. Crear acta de prueba
+            const actaTest = {
+                fecha: new Date().toISOString().split('T')[0],
+                ciudad: 'Miami',
+                agente: 'Test Agent',
+                modeloCamion: 'Freightliner',
+                anioCamion: '2020',
+                placaCamion: 'ABC-123',
+                nombreChofer: 'Juan Pérez',
+                telefonoChofer: '555-1234',
+                nombreAyudante: 'Pedro López',
+                telefonoAyudante: '555-5678',
+                guides: [{
+                    noGuia: `TEST-${Date.now()}`,
+                    nombreCliente: 'Cliente Test',
+                    direccion: 'Dirección Test 123',
+                    telefono: '555-9999',
+                    bultos: 5,
+                    pies: 15.5,
+                    kgs: 30,
+                    via: 'aereo',
+                    subtotal: 50.00
+                }]
+            };
+            
+            // Crear acta
+            const acta = await App.apiCall('/actas', {
+                method: 'POST',
+                body: JSON.stringify(actaTest)
+            });
+            
+            alert(`✅ Acta creada: ${acta.id}`);
+            
+            // 2. Crear factura
+            const invoice = await App.apiCall('/invoices', {
+                method: 'POST',
+                body: JSON.stringify({ actaId: acta.id })
+            });
+            
+            alert(`✅ Factura creada: ${invoice.number}\nSubtotal: $${invoice.subtotal.toFixed(2)}\nIVA: $${invoice.tax.toFixed(2)}\nTotal: $${invoice.total.toFixed(2)}`);
+            
+            // 3. Crear pago de prueba
+            const paymentTest = {
+                invoiceId: invoice.id,
+                fecha: new Date().toISOString().split('T')[0],
+                concepto: 'Pago total de factura',
+                referencia: `TEST-PAY-${Date.now()}`,
+                monto: invoice.total,
+                metodoPago: 'Transferencia bancaria',
+                notas: 'Pago de prueba automático del sistema'
+            };
+            
+            const payment = await App.apiCall('/payments', {
+                method: 'POST',
+                body: JSON.stringify(paymentTest)
+            });
+            
+            alert(`✅ Pago registrado!\n\n📋 Detalles:\n• Fecha: ${payment.fecha}\n• Concepto: ${payment.concepto}\n• Referencia: ${payment.referencia}\n• Monto: $${payment.monto.toFixed(2)}\n• Factura: ${payment.facturaNumero}`);
+            
+            // 4. Mostrar recibo
+            App.viewPaymentDetails(payment.id);
+            
+            // 5. Recargar todas las secciones
+            App.loadDashboard();
+            
+        } catch (error) {
+            console.error('Error en test completo de pagos:', error);
             alert('❌ Error en test: ' + error.message);
         }
     },

@@ -522,6 +522,140 @@ app.get('/api/invoices/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// Payments Routes
+app.get('/api/payments', authenticateToken, async (req, res) => {
+    try {
+        let payments = db.payments || [];
+        if (req.user.role === 'courier') {
+            // Filtrar pagos solo de facturas del courier
+            const courierActas = db.actas.filter(acta => acta.courierId === req.user.id);
+            const courierActaIds = courierActas.map(acta => acta.id);
+            const courierInvoiceIds = db.invoices
+                .filter(invoice => courierActaIds.includes(invoice.actaId))
+                .map(invoice => invoice.id);
+            payments = payments.filter(payment => courierInvoiceIds.includes(payment.invoiceId));
+        }
+        res.json(payments);
+    } catch (error) {
+        console.error('Error al obtener pagos:', error);
+        res.status(500).json({ error: 'Error al obtener pagos' });
+    }
+});
+
+app.post('/api/payments', authenticateToken, authorizeRoles(['admin', 'courier']),
+    body('invoiceId').notEmpty().withMessage('El ID de la factura es requerido'),
+    body('fecha').isISO8601().withMessage('La fecha debe ser válida'),
+    body('monto').isFloat({ min: 0.01 }).withMessage('El monto debe ser mayor que 0'),
+    body('concepto').notEmpty().withMessage('El concepto es requerido'),
+    body('referencia').notEmpty().withMessage('La referencia es requerida'),
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+        
+        try {
+            const { invoiceId, fecha, monto, concepto, referencia, metodoPago, notas, estado } = req.body;
+            
+            // Verificar que la factura existe
+            const invoice = db.invoices.find(inv => inv.id === invoiceId);
+            if (!invoice) {
+                return res.status(404).json({ error: 'Factura no encontrada' });
+            }
+            
+            // Verificar permisos
+            if (req.user.role === 'courier') {
+                const acta = db.actas.find(a => a.id === invoice.actaId);
+                if (acta && acta.courierId !== req.user.id) {
+                    return res.status(403).json({ error: 'No tiene permisos para registrar pagos de esta factura' });
+                }
+            }
+            
+            // Crear registro de pago completo
+            const newPayment = {
+                id: Date.now().toString(),
+                invoiceId: invoiceId,
+                
+                // Campos principales solicitados
+                fecha: fecha,
+                concepto: concepto,
+                referencia: referencia,
+                monto: parseFloat(monto),
+                
+                // Información adicional
+                metodoPago: metodoPago || 'Transferencia bancaria',
+                notas: notas || '',
+                estado: estado || 'completado',
+                
+                // Información de la factura relacionada
+                facturaNumero: invoice.number,
+                facturaTotal: invoice.total,
+                
+                // Metadatos del sistema
+                fechaRegistro: new Date(),
+                registradoPor: req.user.id,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            };
+            
+            // Guardar pago
+            if (!db.payments) {
+                db.payments = [];
+            }
+            db.payments.push(newPayment);
+            
+            // Verificar si la factura está completamente pagada
+            const totalPaid = db.payments
+                .filter(p => p.invoiceId === invoiceId && p.estado === 'completado')
+                .reduce((sum, p) => sum + p.monto, 0);
+            
+            // Actualizar estado de la factura
+            if (totalPaid >= invoice.total) {
+                invoice.status = 'paid';
+                invoice.paidAt = new Date();
+                invoice.updatedAt = new Date();
+            } else if (totalPaid > 0) {
+                invoice.status = 'partial';
+                invoice.updatedAt = new Date();
+            }
+            
+            saveDatabase();
+            
+            console.log(`✅ Pago registrado: ${referencia} - $${monto} para factura ${invoice.number}`);
+            res.status(201).json(newPayment);
+            
+        } catch (error) {
+            console.error('Error al registrar pago:', error);
+            res.status(500).json({ error: 'Error al registrar pago' });
+        }
+    }
+);
+
+app.get('/api/payments/:id', authenticateToken, async (req, res) => {
+    try {
+        const payment = db.payments.find(p => p.id === req.params.id);
+        if (!payment) {
+            return res.status(404).json({ error: 'Pago no encontrado' });
+        }
+        
+        // Verificar permisos
+        if (req.user.role === 'courier') {
+            const invoice = db.invoices.find(inv => inv.id === payment.invoiceId);
+            if (invoice) {
+                const acta = db.actas.find(a => a.id === invoice.actaId);
+                if (acta && acta.courierId !== req.user.id) {
+                    return res.status(403).json({ error: 'No tiene permisos para ver este pago' });
+                }
+            }
+        }
+        
+        res.json(payment);
+    } catch (error) {
+        console.error('Error al obtener pago:', error);
+        res.status(500).json({ error: 'Error al obtener pago' });
+    }
+});
+
 // City Rates Routes
 app.get('/api/city-rates', authenticateToken, async (req, res) => {
     try {

@@ -242,9 +242,13 @@
                         <thead>
                             <tr>
                                 <th>Fecha</th>
-                                <th>Factura</th>
+                                <th>Concepto</th>
+                                <th>Referencia</th>
                                 <th>Monto</th>
-                                <th>Descripción</th>
+                                <th>Factura</th>
+                                <th>Método</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -425,19 +429,63 @@
             <div class="modal-body">
                 <form id="paymentForm">
                     <input type="hidden" id="paymentInvoiceId" name="invoiceId">
-                    <div class="form-group">
-                        <label for="paymentAmount">Monto del Pago</label>
-                        <input type="number" id="paymentAmount" name="amount" step="0.01" required>
+                    <div class="invoice-info" id="paymentInvoiceInfo" style="background: #f0f8ff; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+                        <!-- Se llenará automáticamente con datos de la factura -->
                     </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="paymentDate">📅 Fecha del Pago *</label>
+                            <input type="date" id="paymentDate" name="fecha" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="paymentAmount">💰 Monto *</label>
+                            <input type="number" id="paymentAmount" name="monto" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    
                     <div class="form-group">
-                        <label for="paymentDescription">Descripción</label>
-                        <textarea id="paymentDescription" name="description" rows="3"></textarea>
+                        <label for="paymentConcept">📝 Concepto *</label>
+                        <select id="paymentConcept" name="concepto" required>
+                            <option value="">Seleccionar concepto...</option>
+                            <option value="Pago total de factura">Pago total de factura</option>
+                            <option value="Pago parcial de factura">Pago parcial de factura</option>
+                            <option value="Pago por servicios de transporte">Pago por servicios de transporte</option>
+                            <option value="Pago por almacenaje">Pago por almacenaje</option>
+                            <option value="Pago por manejo de carga">Pago por manejo de carga</option>
+                            <option value="Anticipo">Anticipo</option>
+                            <option value="Otro">Otro (especificar en notas)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="paymentReference">🔗 Referencia/Comprobante *</label>
+                        <input type="text" id="paymentReference" name="referencia" placeholder="Ej: CHK001234, TRANS789, etc." maxlength="50" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="paymentMethod">💳 Método de Pago</label>
+                        <select id="paymentMethod" name="metodoPago">
+                            <option value="Transferencia bancaria">Transferencia bancaria</option>
+                            <option value="Cheque">Cheque</option>
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Tarjeta de crédito">Tarjeta de crédito</option>
+                            <option value="Tarjeta de débito">Tarjeta de débito</option>
+                            <option value="PayPal">PayPal</option>
+                            <option value="Zelle">Zelle</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="paymentNotes">📄 Notas adicionales</label>
+                        <textarea id="paymentNotes" name="notas" rows="3" placeholder="Información adicional del pago..."></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary modal-close">Cancelar</button>
-                <button type="submit" form="paymentForm" class="btn btn-primary">Registrar Pago</button>
+                <button type="submit" form="paymentForm" class="btn btn-primary">💾 Registrar Pago</button>
             </div>
         </div>
     </div>
