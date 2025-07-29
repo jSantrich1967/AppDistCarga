@@ -391,6 +391,137 @@ app.delete('/api/actas/:id', authenticateToken, authorizeRoles(['admin']), async
     }
 });
 
+// Invoices Routes
+app.get('/api/invoices', authenticateToken, async (req, res) => {
+    try {
+        let invoices = db.invoices;
+        if (req.user.role === 'courier') {
+            // Filtrar facturas solo de actas del courier
+            const courierActas = db.actas.filter(acta => acta.courierId === req.user.id);
+            const courierActaIds = courierActas.map(acta => acta.id);
+            invoices = invoices.filter(invoice => courierActaIds.includes(invoice.actaId));
+        }
+        res.json(invoices);
+    } catch (error) {
+        console.error('Error al obtener facturas:', error);
+        res.status(500).json({ error: 'Error al obtener facturas' });
+    }
+});
+
+app.post('/api/invoices', authenticateToken, authorizeRoles(['admin', 'courier']),
+    body('actaId').notEmpty().withMessage('El ID del acta es requerido'),
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+        
+        try {
+            const { actaId } = req.body;
+            
+            // Verificar que el acta existe
+            const acta = db.actas.find(a => a.id === actaId);
+            if (!acta) {
+                return res.status(404).json({ error: 'Acta no encontrada' });
+            }
+            
+            // Verificar permisos
+            if (req.user.role === 'courier' && acta.courierId !== req.user.id) {
+                return res.status(403).json({ error: 'No tiene permisos para facturar esta acta' });
+            }
+            
+            // Verificar que no exista ya una factura para esta acta
+            const existingInvoice = db.invoices.find(inv => inv.actaId === actaId);
+            if (existingInvoice) {
+                return res.status(400).json({ error: 'Ya existe una factura para esta acta' });
+            }
+            
+            // Calcular totales
+            const subtotal = acta.guides ? acta.guides.reduce((sum, guide) => sum + (parseFloat(guide.subtotal) || 0), 0) : 0;
+            const tax = subtotal * 0.19; // 19% IVA
+            const total = subtotal + tax;
+            
+            // Generar número de factura
+            const invoiceNumber = `INV-${Date.now()}`;
+            
+            // Crear factura con formato profesional
+            const newInvoice = {
+                id: Date.now().toString(),
+                number: invoiceNumber,
+                actaId: actaId,
+                
+                // Información del acta
+                fecha: acta.fecha,
+                ciudad: acta.ciudad,
+                agente: acta.agente,
+                
+                // Información del vehículo
+                vehicleInfo: {
+                    modelo: acta.modeloCamion,
+                    anio: acta.anioCamion,
+                    placa: acta.placaCamion,
+                    chofer: acta.nombreChofer,
+                    telefonoChofer: acta.telefonoChofer,
+                    ayudante: acta.nombreAyudante,
+                    telefonoAyudante: acta.telefonoAyudante
+                },
+                
+                // Detalle de guías
+                guides: acta.guides || [],
+                numGuides: acta.guides ? acta.guides.length : 0,
+                
+                // Totales
+                subtotal: subtotal,
+                tax: tax,
+                taxRate: 0.19,
+                total: total,
+                
+                // Estado y fechas
+                status: 'pending',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                
+                // Información adicional
+                currency: 'USD',
+                paymentTerms: '30 días',
+                notes: `Factura generada automáticamente para el Acta ${acta.id}`
+            };
+            
+            db.invoices.push(newInvoice);
+            saveDatabase();
+            
+            console.log(`✅ Factura ${invoiceNumber} creada para acta ${actaId}`);
+            res.status(201).json(newInvoice);
+            
+        } catch (error) {
+            console.error('Error al crear factura:', error);
+            res.status(500).json({ error: 'Error al crear factura' });
+        }
+    }
+);
+
+app.get('/api/invoices/:id', authenticateToken, async (req, res) => {
+    try {
+        const invoice = db.invoices.find(inv => inv.id === req.params.id);
+        if (!invoice) {
+            return res.status(404).json({ error: 'Factura no encontrada' });
+        }
+        
+        // Verificar permisos
+        if (req.user.role === 'courier') {
+            const acta = db.actas.find(a => a.id === invoice.actaId);
+            if (acta && acta.courierId !== req.user.id) {
+                return res.status(403).json({ error: 'No tiene permisos para ver esta factura' });
+            }
+        }
+        
+        res.json(invoice);
+    } catch (error) {
+        console.error('Error al obtener factura:', error);
+        res.status(500).json({ error: 'Error al obtener factura' });
+    }
+});
+
 // City Rates Routes
 app.get('/api/city-rates', authenticateToken, async (req, res) => {
     try {

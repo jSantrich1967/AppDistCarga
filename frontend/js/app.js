@@ -976,26 +976,43 @@ ${guidesInfo}
             const endpoint = currentActa ? `/actas/${currentActa.id}` : '/actas';
             const result = await App.apiCall(endpoint, { method, body: JSON.stringify(actaData) });
             
-            // Generar factura si es acta nueva
-            if (!currentActa && result.id) {
-                try {
-                    await App.apiCall('/invoices', {
-                        method: 'POST',
-                        body: JSON.stringify({ actaId: result.id })
-                    });
-                } catch (invoiceError) {
-                    console.warn('Error generando factura:', invoiceError);
-                }
-            }
-            
             // Cerrar modal
             App.closeModals();
+            App.showLoading(false);
             
             // Mostrar mensaje de éxito
             const message = currentActa ? 'Acta actualizada exitosamente' : 'Acta creada exitosamente';
             alert(message);
             
-            // Recargar datos - FORMA SIMPLE
+            // Preguntar sobre factura solo para actas nuevas
+            if (!currentActa && result.id) {
+                const createInvoice = confirm(
+                    '¿Desea generar la factura automáticamente para esta acta?\n\n' +
+                    'La factura incluirá:\n' +
+                    '• Todos los datos del acta\n' +
+                    '• Detalle de las guías\n' +
+                    '• Totales calculados\n' +
+                    '• Formato profesional'
+                );
+                
+                if (createInvoice) {
+                    try {
+                        App.showLoading(true);
+                        await App.apiCall('/invoices', {
+                            method: 'POST',
+                            body: JSON.stringify({ actaId: result.id })
+                        });
+                        App.showLoading(false);
+                        alert('¡Factura generada exitosamente!');
+                    } catch (invoiceError) {
+                        App.showLoading(false);
+                        console.error('Error generando factura:', invoiceError);
+                        alert('Error al generar la factura: ' + invoiceError.message);
+                    }
+                }
+            }
+            
+            // Recargar datos
             window.location.reload();
             
         } catch (error) {
@@ -1075,16 +1092,25 @@ ${guidesInfo}
     updateInvoicesTable: function(invoices) {
         const tbody = document.querySelector('#invoicesTable tbody');
         tbody.innerHTML = '';
+        
+        if (invoices.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No hay facturas registradas</td></tr>';
+            return;
+        }
+        
         invoices.forEach(invoice => {
             const row = tbody.insertRow();
             row.innerHTML = `
-                <td>${invoice.number}</td>
+                <td><strong>${invoice.number}</strong></td>
                 <td>${App.formatDate(invoice.createdAt)}</td>
-                <td>$${invoice.total.toFixed(2)}</td>
+                <td>${invoice.ciudad || '-'}</td>
+                <td>${invoice.numGuides || 0} guías</td>
+                <td><strong>$${invoice.total.toFixed(2)}</strong></td>
                 <td><span class="status-badge status-${invoice.status}">${App.getStatusText(invoice.status)}</span></td>
                 <td class="actions">
-                    <button class="btn btn-primary" onclick="App.showPaymentModal('${invoice.id}')" ${invoice.status === 'paid' ? 'disabled' : ''}><i class="fas fa-credit-card"></i> Pagar</button>
-                    <button class="btn btn-secondary" onclick="App.printInvoice('${invoice.id}')"><i class="fas fa-print"></i> Imprimir</button>
+                    <button class="btn btn-info btn-sm" onclick="App.viewInvoiceDetails('${invoice.id}')" title="Ver Detalles">👁️</button>
+                    <button class="btn btn-primary btn-sm" onclick="App.showPaymentModal('${invoice.id}')" ${invoice.status === 'paid' ? 'disabled' : ''} title="Pagar">💳</button>
+                    <button class="btn btn-secondary btn-sm" onclick="App.printInvoice('${invoice.id}')" title="Imprimir">🖨️</button>
                 </td>
             `;
         });
@@ -1102,6 +1128,71 @@ ${guidesInfo}
         } catch (error) {
             console.error('Error generating invoice:', error);
             alert(`Error al generar factura: ${error.message}`);
+        }
+    },
+
+    viewInvoiceDetails: async function(invoiceId) {
+        try {
+            const invoice = await App.apiCall(`/invoices/${invoiceId}`);
+            
+            // Crear información detallada de la factura
+            let guidesInfo = '';
+            if (invoice.guides && invoice.guides.length > 0) {
+                guidesInfo = invoice.guides.map((guide, index) => 
+                    `${index + 1}. Guía ${guide.noGuia}\n   Cliente: ${guide.nombreCliente}\n   Dirección: ${guide.direccion}\n   ${guide.bultos} bultos - ${guide.pies} pies³ - ${guide.kgs} kgs\n   Vía: ${guide.via} - Subtotal: $${(guide.subtotal || 0).toFixed(2)}`
+                ).join('\n\n');
+            } else {
+                guidesInfo = 'No hay guías registradas';
+            }
+            
+            const details = `
+FACTURA ${invoice.number}
+========================
+
+📋 INFORMACIÓN GENERAL:
+• Fecha: ${App.formatDate(invoice.fecha)}
+• Ciudad: ${invoice.ciudad}
+• Agente: ${invoice.agente}
+• Estado: ${App.getStatusText(invoice.status)}
+
+🚛 INFORMACIÓN DEL VEHÍCULO:
+• Camión: ${invoice.vehicleInfo?.modelo || 'N/A'} ${invoice.vehicleInfo?.anio || ''}
+• Placa: ${invoice.vehicleInfo?.placa || 'N/A'}
+• Chofer: ${invoice.vehicleInfo?.chofer || 'N/A'} - ${invoice.vehicleInfo?.telefonoChofer || 'N/A'}
+• Ayudante: ${invoice.vehicleInfo?.ayudante || 'N/A'} - ${invoice.vehicleInfo?.telefonoAyudante || 'N/A'}
+
+📦 RESUMEN:
+• Total de guías: ${invoice.numGuides}
+• Moneda: ${invoice.currency}
+• Términos de pago: ${invoice.paymentTerms}
+
+💰 TOTALES:
+• Subtotal: $${invoice.subtotal.toFixed(2)}
+• IVA (${(invoice.taxRate * 100).toFixed(0)}%): $${invoice.tax.toFixed(2)}
+• TOTAL: $${invoice.total.toFixed(2)}
+
+📋 DETALLE DE GUÍAS:
+${guidesInfo}
+
+📝 NOTAS:
+${invoice.notes}
+            `;
+            
+            alert(details.trim());
+            
+            // Copiar al portapapeles
+            if (navigator.clipboard) {
+                try {
+                    await navigator.clipboard.writeText(details.trim());
+                    console.log('Factura copiada al portapapeles');
+                } catch (err) {
+                    console.log('No se pudo copiar al portapapeles');
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error loading invoice details:', error);
+            alert('Error al cargar los detalles de la factura: ' + error.message);
         }
     },
 
@@ -1272,6 +1363,61 @@ ESTADO DEL SISTEMA
         } catch (error) {
             console.error('Error verificando estado:', error);
             alert('Error verificando estado: ' + error.message);
+        }
+    },
+
+    // Test completo del flujo de actas y facturas
+    testCompleteFlow: async function() {
+        try {
+            alert('🧪 Iniciando test completo del flujo acta → factura');
+            
+            // 1. Crear acta de prueba
+            const actaTest = {
+                fecha: new Date().toISOString().split('T')[0],
+                ciudad: 'Miami',
+                agente: 'Test Agent',
+                modeloCamion: 'Freightliner',
+                anioCamion: '2020',
+                placaCamion: 'ABC-123',
+                nombreChofer: 'Juan Pérez',
+                telefonoChofer: '555-1234',
+                nombreAyudante: 'Pedro López',
+                telefonoAyudante: '555-5678',
+                guides: [{
+                    noGuia: `TEST-${Date.now()}`,
+                    nombreCliente: 'Cliente Test',
+                    direccion: 'Dirección Test 123',
+                    telefono: '555-9999',
+                    bultos: 5,
+                    pies: 15.5,
+                    kgs: 30,
+                    via: 'aereo',
+                    subtotal: 38.75
+                }]
+            };
+            
+            // Crear acta
+            const acta = await App.apiCall('/actas', {
+                method: 'POST',
+                body: JSON.stringify(actaTest)
+            });
+            
+            alert(`✅ Acta creada: ${acta.id}`);
+            
+            // 2. Crear factura automáticamente
+            const invoice = await App.apiCall('/invoices', {
+                method: 'POST',
+                body: JSON.stringify({ actaId: acta.id })
+            });
+            
+            alert(`✅ Factura creada: ${invoice.number}\nTotal: $${invoice.total.toFixed(2)}`);
+            
+            // 3. Mostrar detalles
+            App.viewInvoiceDetails(invoice.id);
+            
+        } catch (error) {
+            console.error('Error en test completo:', error);
+            alert('❌ Error en test: ' + error.message);
         }
     },
 
