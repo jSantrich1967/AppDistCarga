@@ -810,134 +810,70 @@ const App = {
 
     viewActaDetails: async function(actaId) {
         try {
-            const acta = await App.apiCall(`/actas/${actaId}`);
+            // Buscar el acta en la lista actual (más simple que hacer API call)
+            const allActas = await App.apiCall('/actas');
+            const acta = allActas.find(a => a.id === actaId);
             
-            // Buscar la factura relacionada
-            let invoice = null;
-            try {
-                const invoices = await App.apiCall('/invoices');
-                invoice = invoices.find(inv => inv.actaId === actaId);
-            } catch (error) {
-                console.warn('No se pudo cargar información de factura');
+            if (!acta) {
+                alert('No se encontró el acta');
+                return;
             }
             
-            // Crear el contenido del modal de detalles
+            // Calcular información básica
+            const numGuias = acta.guides ? acta.guides.length : 0;
             const total = acta.guides ? acta.guides.reduce((sum, guide) => sum + (parseFloat(guide.subtotal) || 0), 0) : 0;
-            const guidesHTML = acta.guides ? acta.guides.map(guide => `
-                <tr>
-                    <td>${guide.noGuia}</td>
-                    <td>${guide.nombreCliente}</td>
-                    <td>${guide.direccion}</td>
-                    <td>${guide.telefono}</td>
-                    <td>${guide.bultos}</td>
-                    <td>${guide.pies}</td>
-                    <td>${guide.kgs}</td>
-                    <td>${guide.via}</td>
-                    <td>$${(guide.subtotal || 0).toFixed(2)}</td>
-                </tr>
-            `).join('') : '<tr><td colspan="9">No hay guías registradas</td></tr>';
             
-            const detailsHTML = `
-                <div class="acta-details">
-                    <div class="details-header">
-                        <h3>Acta de Despacho - ${App.formatDate(acta.fecha)}</h3>
-                        <p><strong>ID:</strong> ${acta.id}</p>
-                        ${invoice ? `<p><strong>Factura:</strong> #${invoice.number || invoice.id} - ${App.getStatusText(invoice.status)}</p>` : '<p><strong>Factura:</strong> <span class="text-warning">Pendiente de generación</span></p>'}
-                    </div>
-                    
-                    <div class="details-info">
-                        <div class="info-row">
-                            <div class="info-col">
-                                <strong>Ciudad:</strong> ${acta.ciudad || 'No especificada'}
-                            </div>
-                            <div class="info-col">
-                                <strong>Agente:</strong> ${acta.agente || 'No especificado'}
-                            </div>
-                        </div>
-                        
-                        <div class="info-row">
-                            <div class="info-col">
-                                <strong>Camión:</strong> ${acta.modeloCamion || 'No especificado'} ${acta.anioCamion || ''} - ${acta.placaCamion || 'Sin placa'}
-                            </div>
-                        </div>
-                        
-                        <div class="info-row">
-                            <div class="info-col">
-                                <strong>Chofer:</strong> ${acta.nombreChofer || 'No especificado'} - ${acta.telefonoChofer || 'Sin teléfono'}
-                            </div>
-                            <div class="info-col">
-                                <strong>Ayudante:</strong> ${acta.nombreAyudante || 'No especificado'} - ${acta.telefonoAyudante || 'Sin teléfono'}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="details-guides">
-                        <h4>Guías de Envío</h4>
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>N° Guía</th>
-                                    <th>Cliente</th>
-                                    <th>Dirección</th>
-                                    <th>Teléfono</th>
-                                    <th>Bultos</th>
-                                    <th>Pies³</th>
-                                    <th>Kgs</th>
-                                    <th>Vía</th>
-                                    <th>Subtotal</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${guidesHTML}
-                            </tbody>
-                            <tfoot>
-                                <tr class="total-row">
-                                    <th colspan="8">TOTAL GENERAL:</th>
-                                    <th>$${total.toFixed(2)}</th>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
+            // Crear información de guías
+            let guidesInfo = '';
+            if (acta.guides && acta.guides.length > 0) {
+                guidesInfo = acta.guides.map((guide, index) => 
+                    `${index + 1}. ${guide.noGuia} - ${guide.nombreCliente} - ${guide.direccion} - ${guide.bultos} bultos - ${guide.pies} pies³ - $${(guide.subtotal || 0).toFixed(2)}`
+                ).join('\n');
+            } else {
+                guidesInfo = 'No hay guías registradas';
+            }
+            
+            // Mostrar información completa en alert (simple y funcional)
+            const details = `
+DETALLES DEL ACTA
+================
+
+📋 INFORMACIÓN GENERAL:
+• ID: ${acta.id}
+• Fecha: ${App.formatDate(acta.fecha)}
+• Ciudad: ${acta.ciudad || 'No especificada'}
+• Agente: ${acta.agente || 'No especificado'}
+
+🚛 INFORMACIÓN DEL VEHÍCULO:
+• Camión: ${acta.modeloCamion || 'No especificado'} ${acta.anioCamion || ''}
+• Placa: ${acta.placaCamion || 'Sin placa'}
+• Chofer: ${acta.nombreChofer || 'No especificado'} - ${acta.telefonoChofer || 'Sin teléfono'}
+• Ayudante: ${acta.nombreAyudante || 'No especificado'} - ${acta.telefonoAyudante || 'Sin teléfono'}
+
+📦 RESUMEN DE ENVÍOS:
+• Total de guías: ${numGuias}
+• Total general: $${total.toFixed(2)}
+
+📋 DETALLE DE GUÍAS:
+${guidesInfo}
             `;
             
-            // Mostrar en un modal o alert (por ahora usamos alert, luego podemos crear un modal dedicado)
-            const newWindow = window.open('', '_blank', 'width=800,height=600');
-            newWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Detalles del Acta - ${acta.id}</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; margin: 20px; }
-                        .acta-details { max-width: 800px; margin: 0 auto; }
-                        .details-header { border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
-                        .info-row { display: flex; margin-bottom: 10px; }
-                        .info-col { flex: 1; margin-right: 20px; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                        th { background-color: #f8f9fa; }
-                        .total-row th { background-color: #007bff; color: white; }
-                        .text-warning { color: #ffc107; }
-                        @media print {
-                            body { margin: 0; }
-                            .no-print { display: none; }
-                        }
-                    </style>
-                </head>
-                <body>
-                    ${detailsHTML}
-                    <div class="no-print" style="margin-top: 20px; text-align: center;">
-                        <button onclick="window.print()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Imprimir</button>
-                        <button onclick="window.close()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;">Cerrar</button>
-                    </div>
-                </body>
-                </html>
-            `);
+            // Mostrar en alert
+            alert(details.trim());
+            
+            // Opción adicional: copiar al portapapeles
+            if (navigator.clipboard) {
+                try {
+                    await navigator.clipboard.writeText(details.trim());
+                    console.log('Detalles copiados al portapapeles');
+                } catch (err) {
+                    console.log('No se pudo copiar al portapapeles');
+                }
+            }
             
         } catch (error) {
             console.error('Error loading acta details:', error);
-            alert('Error al cargar los detalles del acta');
+            alert('Error al cargar los detalles del acta: ' + error.message);
         }
     },
 
@@ -1287,6 +1223,55 @@ const App = {
             alert('Datos iniciales configurados');
         } catch (error) {
             console.error('Error configurando datos iniciales:', error);
+        }
+    },
+
+    // Función para probar la vista de detalles
+    testViewDetails: async function() {
+        try {
+            const actas = await App.apiCall('/actas');
+            if (actas.length === 0) {
+                alert('No hay actas para mostrar. Crea una acta primero.');
+                return;
+            }
+            
+            const firstActa = actas[0];
+            alert(`Probando vista de detalles del acta: ${firstActa.id}`);
+            App.viewActaDetails(firstActa.id);
+        } catch (error) {
+            console.error('Error probando vista de detalles:', error);
+            alert('Error: ' + error.message);
+        }
+    },
+
+    // Verificar estado completo del sistema
+    checkSystemStatus: async function() {
+        try {
+            console.log('🔍 === ESTADO DEL SISTEMA ===');
+            
+            const actas = await App.apiCall('/actas');
+            const invoices = await App.apiCall('/invoices');
+            const agents = await App.apiCall('/agents');
+            
+            console.log(`📋 Actas: ${actas.length}`);
+            console.log(`🧾 Facturas: ${invoices.length}`);
+            console.log(`👥 Agentes: ${agents.length}`);
+            
+            const status = `
+ESTADO DEL SISTEMA
+==================
+📋 Actas registradas: ${actas.length}
+🧾 Facturas generadas: ${invoices.length}
+👥 Agentes disponibles: ${agents.length}
+
+✅ Sistema funcionando correctamente
+            `;
+            
+            alert(status.trim());
+            return { actas, invoices, agents };
+        } catch (error) {
+            console.error('Error verificando estado:', error);
+            alert('Error verificando estado: ' + error.message);
         }
     },
 
