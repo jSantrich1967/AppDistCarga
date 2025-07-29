@@ -56,38 +56,12 @@ const App = {
             });
         });
 
-        // Actas - Con debugging adicional
+        // Botón Nueva Acta - SIMPLIFICADO
         const newActaBtn = document.getElementById('newActaBtn');
         if (newActaBtn) {
-            console.log('✅ Botón Nueva Acta encontrado, configurando event listener...');
-            console.log('🔍 Botón HTML:', newActaBtn.outerHTML);
-            
             newActaBtn.addEventListener('click', function(e) {
-                console.log('🖱️ Botón Nueva Acta clickeado!');
-                console.log('🎯 Event object:', e);
                 e.preventDefault();
-                e.stopPropagation();
-                
-                // Forzar apertura del modal directamente
-                console.log('🚀 Intentando abrir modal...');
                 App.showNewActaModal();
-            });
-            
-            // Agregar debugging adicional
-            newActaBtn.style.border = '2px solid red';
-            newActaBtn.title = 'DEBUG: Click para abrir modal';
-            
-            console.log('✅ Event listener del botón Nueva Acta configurado');
-        } else {
-            console.error('❌ Botón Nueva Acta (newActaBtn) NO encontrado en el DOM');
-            
-            // Buscar todos los botones que contengan "Nueva"
-            const allButtons = document.querySelectorAll('button');
-            console.log('🔍 Todos los botones encontrados:', allButtons.length);
-            allButtons.forEach((btn, index) => {
-                if (btn.textContent.includes('Nueva')) {
-                    console.log(`🎯 Botón ${index} con "Nueva":`, btn.outerHTML);
-                }
             });
         }
         safeAddListener('filterFechaDesde', 'change', App.applyActasFilters);
@@ -535,50 +509,21 @@ const App = {
         }
     },
 
-    // Actas Management
+    // Actas Management - VERSIÓN SIMPLIFICADA
     loadActas: async function() {
         try {
-            console.log('📋 Cargando actas desde el backend...');
             const allActas = await App.apiCall('/actas');
-            console.log(`✅ Recibidas ${allActas.length} actas del backend:`, allActas);
             
-            // Populate filter dropdowns
-            App.populateFilterDropdowns(allActas);
-
-            // Apply current filters
-            const filterFechaDesde = document.getElementById('filterFechaDesde').value;
-            const filterFechaHasta = document.getElementById('filterFechaHasta').value;
-            const filterCiudad = document.getElementById('filterCiudad').value;
-            const filterAgente = document.getElementById('filterAgente').value;
+            // Aplicar filtros básicos
+            const filterCiudad = document.getElementById('filterCiudad')?.value || '';
+            const filterAgente = document.getElementById('filterAgente')?.value || '';
 
             let filteredActas = allActas;
             
-            console.log('🔍 Aplicando filtros:', { filterFechaDesde, filterFechaHasta, filterCiudad, filterAgente });
-            
-            // Filtro por fecha desde
-            if (filterFechaDesde) {
-                filteredActas = filteredActas.filter(acta => {
-                    const actaDate = new Date(acta.fecha);
-                    const fromDate = new Date(filterFechaDesde);
-                    return actaDate >= fromDate;
-                });
-            }
-            
-            // Filtro por fecha hasta
-            if (filterFechaHasta) {
-                filteredActas = filteredActas.filter(acta => {
-                    const actaDate = new Date(acta.fecha);
-                    const toDate = new Date(filterFechaHasta);
-                    return actaDate <= toDate;
-                });
-            }
-            
-            // Filtro por ciudad
             if (filterCiudad) {
                 filteredActas = filteredActas.filter(acta => acta.ciudad === filterCiudad);
             }
             
-            // Filtro por agente
             if (filterAgente) {
                 filteredActas = filteredActas.filter(acta => acta.agente === filterAgente);
             }
@@ -586,21 +531,21 @@ const App = {
             // Ordenar por fecha (más recientes primero)
             filteredActas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
-            console.log(`📊 Después del filtrado: ${filteredActas.length} actas`);
-            console.log('📋 Actas filtradas:', filteredActas);
-
-            await App.updateActasTable(filteredActas);
+            // Actualizar tabla
+            App.updateActasTableSimple(filteredActas);
             
-            // Mostrar contador de resultados
+            // Mostrar contador
             const counter = document.getElementById('actasCounter');
             if (counter) {
                 counter.textContent = `${filteredActas.length} de ${allActas.length} actas`;
-                console.log(`📊 Contador actualizado: ${filteredActas.length} de ${allActas.length} actas`);
-            } else {
-                console.warn('⚠️ Elemento actasCounter no encontrado');
             }
+            
+            // Poblar filtros
+            App.populateFilterDropdowns(allActas);
+            
         } catch (error) {
-            console.error('❌ Error loading actas:', error);
+            console.error('Error loading actas:', error);
+            alert('Error al cargar actas. Revisa la consola.');
         }
     },
 
@@ -647,6 +592,42 @@ const App = {
         document.getElementById('filterCiudad').value = '';
         document.getElementById('filterAgente').value = '';
         App.loadActas(); // Reload actas to show all
+    },
+
+    // Versión simplificada de la tabla de actas
+    updateActasTableSimple: function(actas) {
+        const tbody = document.querySelector('#actasTable tbody');
+        if (!tbody) {
+            console.error('No se encontró la tabla de actas');
+            return;
+        }
+        
+        tbody.innerHTML = '';
+
+        if (actas.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">No hay actas registradas</td></tr>';
+            return;
+        }
+
+        actas.forEach(acta => {
+            const numGuias = acta.guides ? acta.guides.length : 0;
+            const total = acta.guides ? acta.guides.reduce((sum, guide) => sum + (parseFloat(guide.subtotal) || 0), 0) : 0;
+            
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td>${App.formatDate(acta.fecha)}</td>
+                <td>${acta.ciudad || '-'}</td>
+                <td>${acta.agente || '-'}</td>
+                <td>${numGuias}</td>
+                <td>$${total.toFixed(2)}</td>
+                <td><span class="badge badge-success">Generada</span></td>
+                <td><span class="badge badge-info">Activa</span></td>
+                <td>
+                    <button class="btn btn-info btn-sm" onclick="App.viewActaDetails('${acta.id}')" title="Ver">👁️</button>
+                    <button class="btn btn-secondary btn-sm" onclick="App.editActa('${acta.id}')" title="Editar">✏️</button>
+                </td>
+            `;
+        });
     },
 
     exportActas: async function() {
@@ -796,45 +777,35 @@ const App = {
         console.log(`✅ Tabla actualizada con ${actas.length} filas`);
     },
 
-    showNewActaModal: async function() {
-        console.log('🚀 Abriendo modal de Nueva Acta...');
-        
-        // Verificar que el modal existe
+    showNewActaModal: async function() {        
         const modal = document.getElementById('actaModal');
         if (!modal) {
-            console.error('❌ Modal actaModal no encontrado en el DOM');
-            alert('Error: No se pudo abrir el modal. Revisa la consola para más detalles.');
+            alert('Error: No se encontró el modal');
             return;
         }
 
-        // Asegurar que el loading overlay esté cerrado antes de mostrar el modal
-        App.showLoading(false);
-
-        // Forzar la actualización de selectores justo antes de mostrar el modal
-        App.updateCitySelects();
-        
-        // Cargar y actualizar la lista de agentes más reciente
-        try {
-            console.log('📥 Cargando agentes...');
-            const agents = await App.apiCall('/agents');
-            App.updateAgentSelects(agents);
-            console.log('✅ Agentes cargados:', agents.length);
-        } catch (error) {
-            console.error('❌ Error loading agents for modal:', error);
-        }
-
+        // Limpiar modal
         currentActa = null;
         document.getElementById('actaModalTitle').textContent = 'Nueva Acta de Despacho';
         document.getElementById('actaForm').reset();
         
+        // Limpiar tabla de guías
         const guidesTableBody = document.querySelector('#guidesTable tbody');
         if (guidesTableBody) {
             guidesTableBody.innerHTML = '';
         }
         
+        // Actualizar selectores
+        App.updateCitySelects();
+        try {
+            const agents = await App.apiCall('/agents');
+            App.updateAgentSelects(agents);
+        } catch (error) {
+            console.warn('Error cargando agentes:', error);
+        }
+        
         App.updateTotal();
         modal.classList.add('active');
-        console.log('✅ Modal abierto correctamente');
     },
 
     viewActaDetails: async function(actaId) {
@@ -1035,29 +1006,21 @@ const App = {
     },
 
     handleActaSubmit: async function(e) {
-        console.log('📝 Formulario de acta enviado');
         e.preventDefault();
         
+        // Datos básicos del formulario
         const formData = new FormData(e.target);
         const actaData = Object.fromEntries(formData.entries());
         
-        console.log('📋 Datos del formulario:', actaData);
-        
-        // Validación básica
+        // Validación simple
         if (!actaData.fecha || !actaData.ciudad || !actaData.agente) {
             alert('Por favor, completa todos los campos obligatorios: Fecha, Ciudad y Agente.');
-            console.error('❌ Campos obligatorios faltantes:', { 
-                fecha: actaData.fecha, 
-                ciudad: actaData.ciudad, 
-                agente: actaData.agente 
-            });
             return;
         }
         
+        // Procesar guías
         actaData.guides = [];
         const rows = document.querySelectorAll('#guidesTable tbody tr');
-        console.log(`📦 Procesando ${rows.length} filas de guías`);
-        
         rows.forEach(row => {
             const guide = {};
             row.querySelectorAll('input, select').forEach(input => {
@@ -1069,56 +1032,38 @@ const App = {
             }
         });
         
-        console.log(`✅ ${actaData.guides.length} guías válidas procesadas`);
-        console.log('🚀 Enviando acta al servidor:', actaData);
-        
         try {
             App.showLoading(true);
+            
+            // Crear o actualizar acta
             const method = currentActa ? 'PUT' : 'POST';
             const endpoint = currentActa ? `/actas/${currentActa.id}` : '/actas';
-            console.log(`📡 ${method} ${endpoint}`);
-            
             const result = await App.apiCall(endpoint, { method, body: JSON.stringify(actaData) });
-            console.log('✅ Acta guardada exitosamente:', result);
             
-            // Generar factura automáticamente para actas nuevas
+            // Generar factura si es acta nueva
             if (!currentActa && result.id) {
-                console.log('🧾 Generando factura automáticamente...');
                 try {
                     await App.apiCall('/invoices', {
                         method: 'POST',
                         body: JSON.stringify({ actaId: result.id })
                     });
-                    console.log('✅ Factura generada automáticamente');
                 } catch (invoiceError) {
-                    console.error('❌ Error generando factura automática:', invoiceError);
-                    // No fallar si la factura no se puede generar
+                    console.warn('Error generando factura:', invoiceError);
                 }
             }
             
-            console.log('🔄 Cerrando modal y recargando datos...');
+            // Cerrar modal
             App.closeModals();
             
-            console.log('🔄 Recargando actas...');
-            await App.loadActas();
-            
-            console.log('🔄 Recargando facturas...');
-            await App.loadInvoices(); // Recargar facturas también
-            
-            console.log('🔄 Recargando dashboard...');
-            await App.loadDashboard();
-            
-            // Forzar actualización de la vista de actas si estamos en esa sección
-            const activeSection = document.querySelector('.content-section.active');
-            if (activeSection && activeSection.id === 'actasSection') {
-                console.log('📋 Forzando actualización de vista de actas...');
-                setTimeout(() => App.loadActas(), 500); // Recarga adicional después de 500ms
-            }
-            
-            const message = currentActa ? 'Acta actualizada exitosamente' : 'Acta creada y factura generada exitosamente';
+            // Mostrar mensaje de éxito
+            const message = currentActa ? 'Acta actualizada exitosamente' : 'Acta creada exitosamente';
             alert(message);
+            
+            // Recargar datos - FORMA SIMPLE
+            window.location.reload();
+            
         } catch (error) {
-            console.error('❌ Error saving acta:', error);
+            console.error('Error saving acta:', error);
             alert(`Error al guardar acta: ${error.message}`);
         } finally {
             App.showLoading(false);
@@ -1296,23 +1241,52 @@ const App = {
     },
 
     testCreateSimpleActa: async function() {
-        console.log('🧪 Testing creación de acta simple...');
         try {
             const simpleActa = {
                 fecha: new Date().toISOString().split('T')[0],
                 ciudad: 'Miami',
                 agente: 'Test Agent',
-                guides: []
+                guides: [{
+                    noGuia: 'TEST001',
+                    nombreCliente: 'Cliente Test',
+                    direccion: 'Direccion Test',
+                    telefono: '555-1234',
+                    bultos: 1,
+                    pies: 10,
+                    kgs: 20,
+                    via: 'aereo',
+                    subtotal: 25
+                }]
             };
             const result = await App.apiCall('/actas', {
                 method: 'POST',
                 body: JSON.stringify(simpleActa)
             });
-            console.log('✅ Acta de prueba creada:', result);
+            alert('Acta de prueba creada exitosamente');
+            window.location.reload();
             return result;
         } catch (error) {
-            console.error('❌ Error creando acta de prueba:', error);
-            throw error;
+            console.error('Error creando acta de prueba:', error);
+            alert('Error creando acta de prueba: ' + error.message);
+        }
+    },
+
+    // Función para setup inicial
+    setupInitialData: async function() {
+        try {
+            // Agregar un agente de prueba si no existe
+            const agents = await App.apiCall('/agents');
+            if (agents.length === 0) {
+                await App.apiCall('/agents', {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Test Agent' })
+                });
+                console.log('Agente de prueba creado');
+            }
+            
+            alert('Datos iniciales configurados');
+        } catch (error) {
+            console.error('Error configurando datos iniciales:', error);
         }
     },
 
