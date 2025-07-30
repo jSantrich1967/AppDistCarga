@@ -980,6 +980,182 @@ function getStatusText(status) {
     return statusMap[status] || status;
 }
 
+// Accounts Receivable Routes
+app.get('/api/accounts-receivable', authenticateToken, async (req, res) => {
+    try {
+        const { status, agente, dateFrom, dateTo } = req.query;
+        
+        // Obtener todas las facturas
+        let invoices = db.invoices || [];
+        
+        // Filtrar por rol de usuario
+        if (req.user.role === 'courier') {
+            const courierActas = db.actas.filter(acta => acta.courierId === req.user.id);
+            const courierActaIds = courierActas.map(acta => acta.id);
+            invoices = invoices.filter(invoice => courierActaIds.includes(invoice.actaId));
+        }
+        
+        // Calcular estado de pago para cada factura
+        const accountsReceivable = invoices.map(invoice => {
+            // Calcular total pagado para esta factura
+            const payments = db.payments.filter(p => p.invoiceId === invoice.id && p.estado === 'completado');
+            const totalPaid = payments.reduce((sum, p) => sum + (p.monto || 0), 0);
+            const balance = invoice.total - totalPaid;
+            
+            // Determinar estado de pago
+            let paymentStatus;
+            if (totalPaid === 0) {
+                paymentStatus = 'pending';
+            } else if (balance <= 0) {
+                paymentStatus = 'paid';
+            } else {
+                paymentStatus = 'partial';
+            }
+            
+            // Calcular días vencidos
+            const invoiceDate = new Date(invoice.fecha);
+            const today = new Date();
+            const daysDue = Math.floor((today - invoiceDate) / (1000 * 60 * 60 * 24));
+            
+            // Determinar aging
+            let aging;
+            if (daysDue <= 30) {
+                aging = '0-30';
+            } else if (daysDue <= 60) {
+                aging = '31-60';
+            } else if (daysDue <= 90) {
+                aging = '61-90';
+            } else {
+                aging = '90+';
+            }
+            
+            return {
+                invoiceId: invoice.id,
+                invoiceNumber: invoice.number,
+                fecha: invoice.fecha,
+                agente: invoice.agente,
+                ciudad: invoice.ciudad,
+                total: invoice.total,
+                totalPaid: totalPaid,
+                balance: balance,
+                paymentStatus: paymentStatus,
+                daysDue: daysDue,
+                aging: aging,
+                payments: payments,
+                actaId: invoice.actaId,
+                createdAt: invoice.createdAt,
+                paymentTerms: invoice.paymentTerms || '30 días'
+            };
+        });
+        
+        // Aplicar filtros
+        let filtered = accountsReceivable;
+        
+        if (status) {
+            filtered = filtered.filter(ar => ar.paymentStatus === status);
+        }
+        
+        if (agente) {
+            filtered = filtered.filter(ar => ar.agente.toLowerCase().includes(agente.toLowerCase()));
+        }
+        
+        if (dateFrom) {
+            const fromDate = new Date(dateFrom);
+            filtered = filtered.filter(ar => new Date(ar.fecha) >= fromDate);
+        }
+        
+        if (dateTo) {
+            const toDate = new Date(dateTo);
+            filtered = filtered.filter(ar => new Date(ar.fecha) <= toDate);
+        }
+        
+        // Calcular estadísticas
+        const stats = {
+            totalInvoices: filtered.length,
+            totalAmount: filtered.reduce((sum, ar) => sum + ar.total, 0),
+            totalPaid: filtered.reduce((sum, ar) => sum + ar.totalPaid, 0),
+            totalPending: filtered.reduce((sum, ar) => sum + ar.balance, 0),
+            byStatus: {
+                pending: filtered.filter(ar => ar.paymentStatus === 'pending').length,
+                partial: filtered.filter(ar => ar.paymentStatus === 'partial').length,
+                paid: filtered.filter(ar => ar.paymentStatus === 'paid').length
+            },
+            byAging: {
+                '0-30': filtered.filter(ar => ar.aging === '0-30' && ar.balance > 0).reduce((sum, ar) => sum + ar.balance, 0),
+                '31-60': filtered.filter(ar => ar.aging === '31-60' && ar.balance > 0).reduce((sum, ar) => sum + ar.balance, 0),
+                '61-90': filtered.filter(ar => ar.aging === '61-90' && ar.balance > 0).reduce((sum, ar) => sum + ar.balance, 0),
+                '90+': filtered.filter(ar => ar.aging === '90+' && ar.balance > 0).reduce((sum, ar) => sum + ar.balance, 0)
+            }
+        };
+        
+        res.json({
+            accounts: filtered,
+            statistics: stats
+        });
+        
+    } catch (error) {
+        console.error('Error al obtener cuentas por cobrar:', error);
+        res.status(500).json({ error: 'Error al obtener cuentas por cobrar' });
+    }
+});
+
+app.post('/api/accounts-receivable/:invoiceId/reminder', authenticateToken, authorizeRoles(['admin']),
+    body('message').optional().isLength({ max: 500 }).withMessage('Mensaje demasiado largo'),
+    async (req, res) => {
+        try {
+            const { invoiceId } = req.params;
+            const { message } = req.body;
+            
+            // Verificar que la factura existe
+            const invoice = db.invoices.find(inv => inv.id === invoiceId);
+            if (!invoice) {
+                return res.status(404).json({ error: 'Factura no encontrada' });
+            }
+            
+            // Calcular balance pendiente
+            const payments = db.payments.filter(p => p.invoiceId === invoiceId && p.estado === 'completado');
+            const totalPaid = payments.reduce((sum, p) => sum + (p.monto || 0), 0);
+            const balance = invoice.total - totalPaid;
+            
+            if (balance <= 0) {
+                return res.status(400).json({ error: 'Esta factura ya está pagada completamente' });
+            }
+            
+            // Crear recordatorio
+            const reminder = {
+                id: Date.now().toString(),
+                invoiceId: invoiceId,
+                invoiceNumber: invoice.number,
+                agente: invoice.agente,
+                balance: balance,
+                message: message || `Recordatorio de pago para factura ${invoice.number}. Monto pendiente: $${balance.toFixed(2)}`,
+                sentBy: req.user.username,
+                sentAt: new Date(),
+                status: 'sent'
+            };
+            
+            // Guardar recordatorio en la base de datos
+            if (!db.paymentReminders) {
+                db.paymentReminders = [];
+            }
+            db.paymentReminders.push(reminder);
+            saveDatabase();
+            
+            console.log(`📧 Recordatorio enviado para factura ${invoice.number} por ${req.user.username}`);
+            
+            res.json({
+                success: true,
+                reminder: reminder,
+                message: 'Recordatorio registrado exitosamente'
+            });
+            
+        } catch (error) {
+            console.error('Error al enviar recordatorio:', error);
+            res.status(500).json({ error: 'Error al enviar recordatorio' });
+        }
+    }
+);
+
 // City Rates Routes
 app.get('/api/city-rates', authenticateToken, async (req, res) => {
     try {

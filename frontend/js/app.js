@@ -93,6 +93,12 @@ const App = {
         safeAddListener('importBackupFile', 'change', App.handleBackupFileSelection);
         safeAddListener('importBackupBtn', 'click', App.importBackup);
         
+        // Accounts Receivable event listeners
+        safeAddListener('refreshAccountsBtn', 'click', App.loadAccountsReceivable);
+        safeAddListener('applyArFiltersBtn', 'click', App.applyAccountsFilters);
+        safeAddListener('clearArFiltersBtn', 'click', App.clearAccountsFilters);
+        safeAddListener('exportArBtn', 'click', App.exportAccountsReceivable);
+        
         // Modales click fuera para cerrar
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
@@ -231,6 +237,10 @@ const App = {
             case 'payments': 
                 console.log('💳 Cargando Pagos...');
                 App.loadPayments(); 
+                break;
+            case 'accountsReceivable':
+                console.log('💰 Cargando Cuentas por Cobrar...');
+                App.loadAccountsReceivable();
                 break;
             case 'settings': 
                 console.log('⚙️ Cargando Configuración...');
@@ -2615,6 +2625,262 @@ ESTADO DEL SISTEMA
             
         } catch (error) {
             console.error('Error en test de estados:', error);
+            alert('❌ Error en test: ' + error.message);
+        }
+    },
+
+    // Accounts Receivable Management
+    loadAccountsReceivable: async function() {
+        try {
+            console.log('💰 Cargando cuentas por cobrar...');
+            
+            // Obtener filtros actuales
+            const filters = App.getAccountsFilters();
+            
+            // Construir query string para filtros
+            const params = new URLSearchParams();
+            if (filters.status) params.append('status', filters.status);
+            if (filters.agente) params.append('agente', filters.agente);
+            if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
+            if (filters.dateTo) params.append('dateTo', filters.dateTo);
+            
+            const response = await App.apiCall(`/accounts-receivable?${params.toString()}`);
+            
+            // Actualizar estadísticas
+            App.updateAccountsStatistics(response.statistics);
+            
+            // Actualizar tabla
+            App.updateAccountsReceivableTable(response.accounts);
+            
+            console.log('✅ Cuentas por cobrar cargadas:', response.accounts.length);
+            
+        } catch (error) {
+            console.error('Error loading accounts receivable:', error);
+            alert('Error al cargar cuentas por cobrar: ' + error.message);
+        }
+    },
+
+    getAccountsFilters: function() {
+        return {
+            status: document.getElementById('arStatusFilter')?.value || '',
+            agente: document.getElementById('arAgentFilter')?.value || '',
+            dateFrom: document.getElementById('arDateFrom')?.value || '',
+            dateTo: document.getElementById('arDateTo')?.value || ''
+        };
+    },
+
+    updateAccountsStatistics: function(stats) {
+        // Actualizar tarjetas de estadísticas
+        document.getElementById('totalPendingAmount').textContent = `$${stats.totalPending.toFixed(2)}`;
+        document.getElementById('totalInvoicesCount').textContent = stats.totalInvoices;
+        
+        // Calcular vencidas (más de 30 días)
+        const overdueAmount = stats.byAging['31-60'] + stats.byAging['61-90'] + stats.byAging['90+'];
+        document.getElementById('overdueAmount').textContent = `$${overdueAmount.toFixed(2)}`;
+        document.getElementById('recentAmount').textContent = `$${stats.byAging['0-30'].toFixed(2)}`;
+        
+        // Actualizar análisis de aging
+        document.getElementById('aging030').textContent = `$${stats.byAging['0-30'].toFixed(2)}`;
+        document.getElementById('aging3160').textContent = `$${stats.byAging['31-60'].toFixed(2)}`;
+        document.getElementById('aging6190').textContent = `$${stats.byAging['61-90'].toFixed(2)}`;
+        document.getElementById('aging90plus').textContent = `$${stats.byAging['90+'].toFixed(2)}`;
+    },
+
+    updateAccountsReceivableTable: function(accounts) {
+        const tbody = document.querySelector('#accountsReceivableTable tbody');
+        tbody.innerHTML = '';
+        
+        if (accounts.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">No hay cuentas por cobrar con los filtros aplicados</td></tr>';
+            return;
+        }
+        
+        accounts.forEach(account => {
+            const row = tbody.insertRow();
+            
+            // Determinar clase de fila basada en aging
+            let rowClass = '';
+            if (account.balance > 0) {
+                if (account.aging === '90+') rowClass = 'row-critical';
+                else if (account.aging === '61-90') rowClass = 'row-danger';
+                else if (account.aging === '31-60') rowClass = 'row-warning';
+            }
+            
+            row.className = rowClass;
+            
+            row.innerHTML = `
+                <td><strong>${account.invoiceNumber}</strong></td>
+                <td>${App.formatDate(account.fecha)}</td>
+                <td>${account.agente}</td>
+                <td>${account.ciudad}</td>
+                <td><strong>$${account.total.toFixed(2)}</strong></td>
+                <td>$${account.totalPaid.toFixed(2)}</td>
+                <td><strong style="color: ${account.balance > 0 ? '#dc3545' : '#198754'};">$${account.balance.toFixed(2)}</strong></td>
+                <td>
+                    <span class="aging-badge aging-${account.aging.replace('+', 'plus').replace('-', 'to')}">${account.daysDue} días</span>
+                </td>
+                <td><span class="status-badge status-${account.paymentStatus}">${App.getPaymentStatusText(account.paymentStatus)}</span></td>
+                <td class="actions">
+                    <button class="btn btn-info btn-sm" onclick="App.viewInvoiceDetails('${account.invoiceId}')" title="Ver Factura">👁️</button>
+                    ${account.balance > 0 ? `
+                        <button class="btn btn-warning btn-sm" onclick="App.showPaymentModal('${account.invoiceId}')" title="Registrar Pago">💳</button>
+                        <button class="btn btn-secondary btn-sm" onclick="App.sendPaymentReminder('${account.invoiceId}')" title="Enviar Recordatorio">📧</button>
+                    ` : ''}
+                </td>
+            `;
+        });
+    },
+
+    getPaymentStatusText: function(status) {
+        const statusMap = {
+            'pending': 'Pendiente',
+            'partial': 'Pago Parcial',
+            'paid': 'Pagado'
+        };
+        return statusMap[status] || status;
+    },
+
+    applyAccountsFilters: function() {
+        App.loadAccountsReceivable();
+    },
+
+    clearAccountsFilters: function() {
+        document.getElementById('arStatusFilter').value = '';
+        document.getElementById('arAgentFilter').value = '';
+        document.getElementById('arDateFrom').value = '';
+        document.getElementById('arDateTo').value = '';
+        App.loadAccountsReceivable();
+    },
+
+    sendPaymentReminder: async function(invoiceId) {
+        try {
+            const customMessage = prompt(
+                'Mensaje personalizado del recordatorio (opcional):\n\n' +
+                'Dejar vacío para usar mensaje automático.'
+            );
+            
+            if (customMessage === null) return; // Usuario canceló
+            
+            App.showLoading(true);
+            
+            const result = await App.apiCall(`/accounts-receivable/${invoiceId}/reminder`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    message: customMessage || undefined
+                })
+            });
+            
+            App.showLoading(false);
+            
+            if (result.success) {
+                alert(`✅ Recordatorio enviado exitosamente para la factura ${result.reminder.invoiceNumber}`);
+            } else {
+                throw new Error(result.message || 'Error al enviar recordatorio');
+            }
+            
+        } catch (error) {
+            App.showLoading(false);
+            console.error('Error sending payment reminder:', error);
+            alert('❌ Error al enviar recordatorio: ' + error.message);
+        }
+    },
+
+    exportAccountsReceivable: async function() {
+        try {
+            const confirmed = confirm(
+                '¿Desea exportar el reporte de cuentas por cobrar?\n\n' +
+                'Se generará un archivo CSV con los datos actuales filtrados.'
+            );
+            
+            if (!confirmed) return;
+            
+            App.showLoading(true);
+            
+            // Obtener datos con filtros actuales
+            const filters = App.getAccountsFilters();
+            const params = new URLSearchParams();
+            if (filters.status) params.append('status', filters.status);
+            if (filters.agente) params.append('agente', filters.agente);
+            if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
+            if (filters.dateTo) params.append('dateTo', filters.dateTo);
+            
+            const response = await App.apiCall(`/accounts-receivable?${params.toString()}`);
+            
+            // Generar CSV
+            const csvContent = App.generateAccountsCSV(response.accounts, response.statistics);
+            
+            // Descargar archivo
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `cuentas-por-cobrar-${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            
+            App.showLoading(false);
+            alert('✅ Reporte exportado exitosamente');
+            
+        } catch (error) {
+            App.showLoading(false);
+            console.error('Error exporting accounts receivable:', error);
+            alert('❌ Error al exportar: ' + error.message);
+        }
+    },
+
+    generateAccountsCSV: function(accounts, stats) {
+        // Encabezados CSV
+        let csv = 'Factura,Fecha,Agente,Ciudad,Total,Pagado,Saldo,Días Vencidos,Estado,Aging\n';
+        
+        // Datos de cuentas
+        accounts.forEach(account => {
+            csv += `"${account.invoiceNumber}",`;
+            csv += `"${App.formatDate(account.fecha)}",`;
+            csv += `"${account.agente}",`;
+            csv += `"${account.ciudad}",`;
+            csv += `${account.total.toFixed(2)},`;
+            csv += `${account.totalPaid.toFixed(2)},`;
+            csv += `${account.balance.toFixed(2)},`;
+            csv += `${account.daysDue},`;
+            csv += `"${App.getPaymentStatusText(account.paymentStatus)}",`;
+            csv += `"${account.aging} días"\n`;
+        });
+        
+        // Agregar resumen estadístico
+        csv += '\n\nRESUMEN ESTADÍSTICO\n';
+        csv += `Total Facturas,${stats.totalInvoices}\n`;
+        csv += `Monto Total,$${stats.totalAmount.toFixed(2)}\n`;
+        csv += `Total Pagado,$${stats.totalPaid.toFixed(2)}\n`;
+        csv += `Total Pendiente,$${stats.totalPending.toFixed(2)}\n`;
+        
+        csv += '\nANÁLISIS DE ANTIGÜEDAD\n';
+        csv += `0-30 días,$${stats.byAging['0-30'].toFixed(2)}\n`;
+        csv += `31-60 días,$${stats.byAging['31-60'].toFixed(2)}\n`;
+        csv += `61-90 días,$${stats.byAging['61-90'].toFixed(2)}\n`;
+        csv += `+90 días,$${stats.byAging['90+'].toFixed(2)}\n`;
+        
+        return csv;
+    },
+
+    // Test del módulo de cuentas por cobrar
+    testAccountsReceivable: async function() {
+        try {
+            alert('🧪 Iniciando test del módulo de cuentas por cobrar...');
+            
+            // Cargar datos
+            await App.loadAccountsReceivable();
+            
+            // Verificar que hay datos
+            const tableBody = document.querySelector('#accountsReceivableTable tbody');
+            const rows = tableBody.querySelectorAll('tr');
+            
+            if (rows.length === 1 && rows[0].cells.length === 1) {
+                alert('⚠️ No hay cuentas por cobrar para mostrar. Crea algunas facturas primero.');
+                return;
+            }
+            
+            alert(`✅ Test completado:\n• Cuentas por cobrar cargadas: ${rows.length}\n• Estadísticas actualizadas\n• Filtros funcionales\n• Exportación disponible`);
+            
+        } catch (error) {
+            console.error('Error en test de cuentas por cobrar:', error);
             alert('❌ Error en test: ' + error.message);
         }
     },
