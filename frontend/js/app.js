@@ -1196,9 +1196,301 @@ ${invoice.notes}
         }
     },
 
-    printInvoice: function(invoiceId) {
-        alert(`Imprimir factura (ID: ${invoiceId}) - funcionalidad no implementada.`);
-        console.log('printInvoice called for invoice ID:', invoiceId);
+    printInvoice: async function(invoiceId) {
+        try {
+            // Obtener datos de la factura
+            const invoice = await App.apiCall(`/invoices/${invoiceId}`);
+            
+            // Crear el HTML de la factura
+            const invoiceHTML = App.generateInvoiceHTML(invoice);
+            
+            // Crear ventana de impresión
+            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            printWindow.document.write(invoiceHTML);
+            printWindow.document.close();
+            
+            // Esperar a que cargue y luego imprimir
+            printWindow.onload = function() {
+                printWindow.focus();
+                printWindow.print();
+                // Cerrar ventana después de imprimir (opcional)
+                // printWindow.close();
+            };
+            
+        } catch (error) {
+            console.error('Error printing invoice:', error);
+            alert('Error al imprimir la factura: ' + error.message);
+        }
+    },
+
+    generateInvoiceHTML: function(invoice) {
+        // Generar filas de guías
+        let guidesHTML = '';
+        if (invoice.guides && invoice.guides.length > 0) {
+            guidesHTML = invoice.guides.map((guide, index) => `
+                <tr>
+                    <td style="border-bottom: 1px solid #ddd; padding: 8px;">${index + 1}</td>
+                    <td style="border-bottom: 1px solid #ddd; padding: 8px;">${guide.noGuia}</td>
+                    <td style="border-bottom: 1px solid #ddd; padding: 8px;">${guide.nombreCliente}</td>
+                    <td style="border-bottom: 1px solid #ddd; padding: 8px;">${guide.direccion}</td>
+                    <td style="border-bottom: 1px solid #ddd; padding: 8px; text-align: center;">${guide.bultos}</td>
+                    <td style="border-bottom: 1px solid #ddd; padding: 8px; text-align: center;">${guide.pies}</td>
+                    <td style="border-bottom: 1px solid #ddd; padding: 8px; text-align: center;">${guide.kgs}</td>
+                    <td style="border-bottom: 1px solid #ddd; padding: 8px; text-align: center;">${guide.via}</td>
+                    <td style="border-bottom: 1px solid #ddd; padding: 8px; text-align: right;">$${(guide.subtotal || 0).toFixed(2)}</td>
+                </tr>
+            `).join('');
+        } else {
+            guidesHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px; font-style: italic;">No hay guías registradas</td></tr>';
+        }
+
+        return `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Factura ${invoice.number}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            line-height: 1.4;
+        }
+        .invoice-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 20px;
+        }
+        .company-info {
+            flex: 1;
+        }
+        .company-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 5px;
+        }
+        .company-details {
+            font-size: 12px;
+            color: #666;
+        }
+        .invoice-info {
+            text-align: right;
+            flex: 1;
+        }
+        .invoice-number {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 10px;
+        }
+        .invoice-details {
+            font-size: 12px;
+        }
+        .section {
+            margin-bottom: 25px;
+        }
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 5px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .info-block {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .info-block h4 {
+            margin: 0 0 10px 0;
+            font-size: 12px;
+            color: #2563eb;
+            text-transform: uppercase;
+        }
+        .info-block p {
+            margin: 3px 0;
+            font-size: 11px;
+        }
+        .guides-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+            margin-bottom: 20px;
+        }
+        .guides-table th {
+            background: #2563eb;
+            color: white;
+            padding: 8px;
+            text-align: left;
+            font-weight: bold;
+        }
+        .totals-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+        .totals-table {
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .totals-table td {
+            padding: 5px 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        .totals-table .total-row {
+            font-weight: bold;
+            font-size: 14px;
+            background: #f8fafc;
+        }
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 10px;
+            color: #666;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 20px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-paid { background: #d1fae5; color: #065f46; }
+        .status-partial { background: #dbeafe; color: #1e40af; }
+        
+        @media print {
+            body { margin: 0; padding: 10px; }
+            .invoice-container { max-width: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="company-info">
+                <div class="company-name">SISTEMA DE DISTRIBUCIÓN DE CARGA</div>
+                <div class="company-details">
+                    Sistema de Gestión de Transporte y Logística<br>
+                    Email: info@distcarga.com | Tel: (555) 123-4567<br>
+                    Dirección: Calle Principal 123, Ciudad, País
+                </div>
+            </div>
+            <div class="invoice-info">
+                <div class="invoice-number">FACTURA ${invoice.number}</div>
+                <div class="invoice-details">
+                    <strong>Fecha:</strong> ${App.formatDate(invoice.fecha)}<br>
+                    <strong>Estado:</strong> <span class="status-badge status-${invoice.status}">${App.getStatusText(invoice.status)}</span><br>
+                    <strong>Términos:</strong> ${invoice.paymentTerms}<br>
+                    <strong>Moneda:</strong> ${invoice.currency}
+                </div>
+            </div>
+        </div>
+
+        <!-- Información General -->
+        <div class="section">
+            <div class="section-title">INFORMACIÓN DEL ENVÍO</div>
+            <div class="info-grid">
+                <div class="info-block">
+                    <h4>📍 Detalles del Envío</h4>
+                    <p><strong>Ciudad:</strong> ${invoice.ciudad}</p>
+                    <p><strong>Agente:</strong> ${invoice.agente}</p>
+                    <p><strong>Fecha de servicio:</strong> ${App.formatDate(invoice.fecha)}</p>
+                    <p><strong>Total de guías:</strong> ${invoice.numGuides}</p>
+                </div>
+                <div class="info-block">
+                    <h4>🚛 Información del Vehículo</h4>
+                    <p><strong>Camión:</strong> ${invoice.vehicleInfo?.modelo || 'N/A'} ${invoice.vehicleInfo?.anio || ''}</p>
+                    <p><strong>Placa:</strong> ${invoice.vehicleInfo?.placa || 'N/A'}</p>
+                    <p><strong>Chofer:</strong> ${invoice.vehicleInfo?.chofer || 'N/A'}</p>
+                    <p><strong>Teléfono:</strong> ${invoice.vehicleInfo?.telefonoChofer || 'N/A'}</p>
+                    <p><strong>Ayudante:</strong> ${invoice.vehicleInfo?.ayudante || 'N/A'}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detalle de Guías -->
+        <div class="section">
+            <div class="section-title">DETALLE DE GUÍAS</div>
+            <table class="guides-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>No. Guía</th>
+                        <th>Cliente</th>
+                        <th>Dirección</th>
+                        <th>Bultos</th>
+                        <th>Pies³</th>
+                        <th>Kgs</th>
+                        <th>Vía</th>
+                        <th>Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${guidesHTML}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Totales -->
+        <div class="totals-section">
+            <table class="totals-table">
+                <tr>
+                    <td>Subtotal:</td>
+                    <td style="text-align: right;">$${invoice.subtotal.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td>IVA (${(invoice.taxRate * 100).toFixed(0)}%):</td>
+                    <td style="text-align: right;">$${invoice.tax.toFixed(2)}</td>
+                </tr>
+                <tr class="total-row">
+                    <td>TOTAL:</td>
+                    <td style="text-align: right;">$${invoice.total.toFixed(2)}</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Notas -->
+        <div class="section">
+            <div class="section-title">NOTAS</div>
+            <p style="font-size: 11px; background: #f8fafc; padding: 15px; border-radius: 5px;">
+                ${invoice.notes || 'Sin notas adicionales para esta factura.'}
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>Gracias por confiar en nuestros servicios</strong></p>
+            <p>Factura generada automáticamente el ${App.formatDate(invoice.createdAt)} | ID: ${invoice.id}</p>
+            <p>Para consultas sobre esta factura, contacte al departamento de facturación</p>
+        </div>
+    </div>
+</body>
+</html>
+        `;
     },
 
     viewPaymentDetails: async function(paymentId) {
@@ -1632,6 +1924,27 @@ ESTADO DEL SISTEMA
         } catch (error) {
             console.error('Error en test completo:', error);
             alert('❌ Error en test: ' + error.message);
+        }
+    },
+
+    // Test de impresión de facturas
+    testPrintInvoice: async function() {
+        try {
+            const invoices = await App.apiCall('/invoices');
+            if (invoices.length === 0) {
+                alert('No hay facturas para imprimir. Crea una factura primero.');
+                return;
+            }
+            
+            const firstInvoice = invoices[0];
+            alert(`🖨️ Probando impresión de la factura: ${firstInvoice.number}`);
+            
+            // Imprimir la primera factura disponible
+            App.printInvoice(firstInvoice.id);
+            
+        } catch (error) {
+            console.error('Error en test de impresión:', error);
+            alert('❌ Error al probar impresión: ' + error.message);
         }
     },
 
