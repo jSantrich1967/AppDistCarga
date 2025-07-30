@@ -436,10 +436,9 @@ app.post('/api/invoices', authenticateToken, authorizeRoles(['admin', 'courier']
                 return res.status(400).json({ error: 'Ya existe una factura para esta acta' });
             }
             
-            // Calcular totales
+            // Calcular totales (sin IVA)
             const subtotal = acta.guides ? acta.guides.reduce((sum, guide) => sum + (parseFloat(guide.subtotal) || 0), 0) : 0;
-            const tax = subtotal * 0.19; // 19% IVA
-            const total = subtotal + tax;
+            const total = subtotal; // Total igual al subtotal (sin IVA)
             
             // Generar número de factura
             const invoiceNumber = `INV-${Date.now()}`;
@@ -470,10 +469,8 @@ app.post('/api/invoices', authenticateToken, authorizeRoles(['admin', 'courier']
                 guides: acta.guides || [],
                 numGuides: acta.guides ? acta.guides.length : 0,
                 
-                // Totales
+                // Totales (sin IVA)
                 subtotal: subtotal,
-                tax: tax,
-                taxRate: 0.19,
                 total: total,
                 
                 // Estado y fechas
@@ -484,7 +481,7 @@ app.post('/api/invoices', authenticateToken, authorizeRoles(['admin', 'courier']
                 // Información adicional
                 currency: 'USD',
                 paymentTerms: '30 días',
-                notes: `Factura generada automáticamente para el Acta ${acta.id}`
+                notes: `Factura generada automáticamente para el Acta ${acta.id} | Exenta de IVA`
             };
             
             db.invoices.push(newInvoice);

@@ -1168,8 +1168,7 @@ FACTURA ${invoice.number}
 
 💰 TOTALES:
 • Subtotal: $${invoice.subtotal.toFixed(2)}
-• IVA (${(invoice.taxRate * 100).toFixed(0)}%): $${invoice.tax.toFixed(2)}
-• TOTAL: $${invoice.total.toFixed(2)}
+• TOTAL (Exento de IVA): $${invoice.total.toFixed(2)}
 
 📋 DETALLE DE GUÍAS:
 ${guidesInfo}
@@ -1455,23 +1454,19 @@ ${invoice.notes}
             </table>
         </div>
 
-        <!-- Totales -->
-        <div class="totals-section">
-            <table class="totals-table">
-                <tr>
-                    <td>Subtotal:</td>
-                    <td style="text-align: right;">$${invoice.subtotal.toFixed(2)}</td>
-                </tr>
-                <tr>
-                    <td>IVA (${(invoice.taxRate * 100).toFixed(0)}%):</td>
-                    <td style="text-align: right;">$${invoice.tax.toFixed(2)}</td>
-                </tr>
-                <tr class="total-row">
-                    <td>TOTAL:</td>
-                    <td style="text-align: right;">$${invoice.total.toFixed(2)}</td>
-                </tr>
-            </table>
-        </div>
+                 <!-- Totales -->
+         <div class="totals-section">
+             <table class="totals-table">
+                 <tr>
+                     <td>Subtotal:</td>
+                     <td style="text-align: right;">$${invoice.subtotal.toFixed(2)}</td>
+                 </tr>
+                 <tr class="total-row">
+                     <td>TOTAL (Exento de IVA):</td>
+                     <td style="text-align: right;">$${invoice.total.toFixed(2)}</td>
+                 </tr>
+             </table>
+         </div>
 
         <!-- Notas -->
         <div class="section">
@@ -1992,7 +1987,7 @@ ESTADO DEL SISTEMA
                 body: JSON.stringify({ actaId: acta.id })
             });
             
-            alert(`✅ Factura creada: ${invoice.number}\nSubtotal: $${invoice.subtotal.toFixed(2)}\nIVA: $${invoice.tax.toFixed(2)}\nTotal: $${invoice.total.toFixed(2)}`);
+            alert(`✅ Factura creada: ${invoice.number}\nSubtotal: $${invoice.subtotal.toFixed(2)}\nTotal (Sin IVA): $${invoice.total.toFixed(2)}`);
             
             // 3. Crear pago de prueba
             const paymentTest = {
