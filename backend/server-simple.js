@@ -7,13 +7,13 @@ const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const cookieParser = require('cookie-parser');
 // Dependencias con manejo de errores
-let XLSX;
+let xlsx;
 let multer;
 
 try {
-    XLSX = require('xlsx');
+    xlsx = require('node-xlsx');
     multer = require('multer');
-    console.log('✅ Librerías XLSX y Multer cargadas correctamente');
+    console.log('✅ Librerías node-xlsx y Multer cargadas correctamente');
 } catch (error) {
     console.error('❌ Error cargando librerías:', error.message);
     // Cargar versión alternativa o deshabilitar funcionalidad
@@ -67,11 +67,11 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 // Ruta para descargar plantilla Excel
 app.get('/api/plantilla-excel', (req, res) => {
     try {
-        // Verificar que XLSX esté disponible
-        if (!XLSX) {
+        // Verificar que node-xlsx esté disponible
+        if (!xlsx) {
             return res.status(503).json({ 
                 error: 'Funcionalidad de generación Excel no disponible',
-                message: 'La librería XLSX no está instalada correctamente'
+                message: 'La librería node-xlsx no está instalada correctamente'
             });
         }
         // Datos para la plantilla
@@ -99,9 +99,6 @@ app.get('/api/plantilla-excel', (req, res) => {
             ]
         ];
 
-        // Crear workbook
-        const wb = XLSX.utils.book_new();
-
         // Hoja de instrucciones
         const instrucciones = [
             ['📊 PLANTILLA PARA IMPORTACIÓN DE ACTAS DE DESPACHO'],
@@ -125,24 +122,23 @@ app.get('/api/plantilla-excel', (req, res) => {
             ['5. Guarda y sube el archivo a la aplicación']
         ];
 
-        const wsInstrucciones = XLSX.utils.aoa_to_sheet(instrucciones);
-        wsInstrucciones['!cols'] = [{wch: 50}];
-        XLSX.utils.book_append_sheet(wb, wsInstrucciones, "📋 Instrucciones");
-
-        // Hoja de actas
+        // Hoja de actas con headers y ejemplos
         const datosActas = [headers, ...ejemplos];
-        const wsActas = XLSX.utils.aoa_to_sheet(datosActas);
-        
-        const colWidths = [
-            {wch: 12}, {wch: 15}, {wch: 20}, {wch: 18}, {wch: 12}, {wch: 12},
-            {wch: 18}, {wch: 15}, {wch: 18}, {wch: 15},
-            {wch: 15}, {wch: 20}, {wch: 30}, {wch: 15}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 10}, {wch: 10}
-        ];
-        wsActas['!cols'] = colWidths;
-        XLSX.utils.book_append_sheet(wb, wsActas, "📊 Actas");
 
-        // Generar buffer
-        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        // Crear workbook con ambas hojas usando node-xlsx
+        const workbookData = [
+            {
+                name: 'Instrucciones',
+                data: instrucciones
+            },
+            {
+                name: 'Actas',
+                data: datosActas
+            }
+        ];
+
+        // Generar buffer usando node-xlsx
+        const buffer = xlsx.build(workbookData);
 
         // Configurar headers de respuesta
         const today = new Date().toISOString().split('T')[0];
@@ -1292,7 +1288,7 @@ app.post('/api/accounts-receivable/:invoiceId/reminder', authenticateToken, auth
 // Excel Import Routes
 app.post('/api/actas/import-excel', authenticateToken, authorizeRoles(['admin']), (req, res, next) => {
     // Verificar que las librerías estén disponibles
-    if (!XLSX || !multer || !upload) {
+    if (!xlsx || !multer || !upload) {
         return res.status(503).json({ 
             error: 'Funcionalidad de importación Excel no disponible',
             message: 'Las librerías necesarias no están instaladas correctamente'
@@ -1307,13 +1303,15 @@ app.post('/api/actas/import-excel', authenticateToken, authorizeRoles(['admin'])
 
         console.log(`📊 Procesando archivo Excel: ${req.file.originalname}`);
 
-        // Leer el archivo Excel desde el buffer
-        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
+        // Leer el archivo Excel desde el buffer usando node-xlsx
+        const workbook = xlsx.parse(req.file.buffer);
+        
+        if (!workbook || workbook.length === 0) {
+            return res.status(400).json({ error: 'No se pudieron leer las hojas del archivo Excel' });
+        }
 
-        // Convertir a JSON
-        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        // Obtener la primera hoja y sus datos
+        const rawData = workbook[0].data;
 
         if (rawData.length < 2) {
             return res.status(400).json({ error: 'El archivo debe tener al menos una fila de encabezados y una fila de datos' });
