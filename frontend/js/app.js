@@ -99,6 +99,11 @@ const App = {
         safeAddListener('clearArFiltersBtn', 'click', App.clearAccountsFilters);
         safeAddListener('exportArBtn', 'click', App.exportAccountsReceivable);
         
+        // Excel Import event listeners
+        safeAddListener('importExcelBtn', 'click', App.showExcelImport);
+        safeAddListener('excelFileInput', 'change', App.handleFileSelection);
+        safeAddListener('processExcelBtn', 'click', App.processExcelFile);
+        
         // Modales click fuera para cerrar
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
@@ -205,6 +210,9 @@ const App = {
         
         // Configurar event listeners de la pantalla principal
         App.setupMainScreenListeners();
+        
+        // Setup drag and drop functionality after DOM is ready
+        setTimeout(() => App.setupDragAndDrop(), 100);
         
         // Cargar datos esenciales al iniciar la pantalla principal
         await App.loadCityRates(); // Cargar tarifas de ciudades
@@ -2881,6 +2889,311 @@ ESTADO DEL SISTEMA
             
         } catch (error) {
             console.error('Error en test de cuentas por cobrar:', error);
+            alert('❌ Error en test: ' + error.message);
+        }
+    },
+
+    // Excel Import Management
+    showExcelImport: function() {
+        const importSection = document.getElementById('excelImportSection');
+        if (importSection.style.display === 'none') {
+            importSection.style.display = 'block';
+            importSection.scrollIntoView({ behavior: 'smooth' });
+        } else {
+            importSection.style.display = 'none';
+        }
+    },
+
+    hideExcelImport: function() {
+        document.getElementById('excelImportSection').style.display = 'none';
+        App.clearSelectedFile();
+    },
+
+    handleFileSelection: function(e) {
+        const file = e.target.files[0];
+        const fileInfo = document.getElementById('selectedFileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const processBtn = document.getElementById('processExcelBtn');
+        
+        if (file) {
+            // Validar tipo de archivo
+            const validTypes = [
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            ];
+            
+            if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/)) {
+                alert('❌ Por favor selecciona un archivo Excel válido (.xlsx o .xls)');
+                e.target.value = '';
+                return;
+            }
+            
+            // Validar tamaño (10MB máximo)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('❌ El archivo es demasiado grande. Máximo 10MB permitido.');
+                e.target.value = '';
+                return;
+            }
+            
+            // Mostrar información del archivo
+            fileName.textContent = file.name;
+            fileSize.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+            fileInfo.style.display = 'block';
+            processBtn.disabled = false;
+            
+            App.selectedFile = file;
+        } else {
+            App.clearSelectedFile();
+        }
+    },
+
+    clearSelectedFile: function() {
+        document.getElementById('excelFileInput').value = '';
+        document.getElementById('selectedFileInfo').style.display = 'none';
+        document.getElementById('processExcelBtn').disabled = true;
+        document.getElementById('importResults').style.display = 'none';
+        App.selectedFile = null;
+    },
+
+    processExcelFile: async function() {
+        if (!App.selectedFile) {
+            alert('❌ Por favor selecciona un archivo Excel primero');
+            return;
+        }
+
+        const confirmed = confirm(
+            '¿Está seguro de que desea importar las actas desde este archivo Excel?\n\n' +
+            '⚠️ Se crearán nuevas actas en el sistema basadas en los datos del archivo.\n\n' +
+            'Archivo: ' + App.selectedFile.name
+        );
+
+        if (!confirmed) return;
+
+        try {
+            App.showImportProgress(true);
+
+            // Crear FormData para enviar el archivo
+            const formData = new FormData();
+            formData.append('excelFile', App.selectedFile);
+
+            // Enviar archivo al servidor
+            const response = await fetch('/api/actas/import-excel', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: formData
+            });
+
+            const result = await response.json();
+
+            App.showImportProgress(false);
+
+            if (!response.ok) {
+                throw new Error(result.error || `Error HTTP: ${response.status}`);
+            }
+
+            // Mostrar resultados
+            App.showImportResults(result);
+
+            // Recargar datos de actas
+            if (result.imported > 0) {
+                App.loadActas();
+                App.loadDashboard();
+            }
+
+        } catch (error) {
+            App.showImportProgress(false);
+            console.error('Error procesando archivo Excel:', error);
+            alert('❌ Error al procesar archivo: ' + error.message);
+        }
+    },
+
+    showImportProgress: function(show) {
+        const progressDiv = document.getElementById('importProgress');
+        const progressFill = progressDiv.querySelector('.progress-fill');
+        
+        if (show) {
+            progressDiv.style.display = 'block';
+            progressFill.style.width = '0%';
+            
+            // Animación de progreso
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 20;
+                if (progress > 90) progress = 90;
+                progressFill.style.width = progress + '%';
+            }, 200);
+            
+            App.progressInterval = interval;
+        } else {
+            if (App.progressInterval) {
+                clearInterval(App.progressInterval);
+            }
+            progressFill.style.width = '100%';
+            setTimeout(() => {
+                progressDiv.style.display = 'none';
+            }, 500);
+        }
+    },
+
+    showImportResults: function(result) {
+        const resultsDiv = document.getElementById('importResults');
+        
+        let errorsHtml = '';
+        if (result.errors && result.errors.length > 0) {
+            errorsHtml = `
+                <div class="errors-section">
+                    <h5>⚠️ Errores encontrados:</h5>
+                    <div class="errors-list">
+                        ${result.errors.map(error => `
+                            <div class="error-item">
+                                <strong>Fila ${error.row}:</strong> ${error.error}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        resultsDiv.innerHTML = `
+            <div class="results-header">
+                <h4>📊 Resultados de la Importación</h4>
+            </div>
+            
+            <div class="results-summary">
+                <div class="summary-item success">
+                    <div class="summary-icon">✅</div>
+                    <div class="summary-content">
+                        <div class="summary-label">Actas Creadas</div>
+                        <div class="summary-value">${result.imported}</div>
+                    </div>
+                </div>
+                
+                <div class="summary-item info">
+                    <div class="summary-icon">📋</div>
+                    <div class="summary-content">
+                        <div class="summary-label">Filas Procesadas</div>
+                        <div class="summary-value">${result.summary?.totalRows || 0}</div>
+                    </div>
+                </div>
+                
+                ${result.errors?.length > 0 ? `
+                <div class="summary-item error">
+                    <div class="summary-icon">❌</div>
+                    <div class="summary-content">
+                        <div class="summary-label">Errores</div>
+                        <div class="summary-value">${result.errors.length}</div>
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+            
+            ${errorsHtml}
+            
+            <div class="results-actions">
+                <button class="btn btn-primary" onclick="App.hideExcelImport()">
+                    ✅ Finalizar Importación
+                </button>
+                <button class="btn btn-secondary" onclick="App.clearSelectedFile()">
+                    🔄 Importar Otro Archivo
+                </button>
+            </div>
+        `;
+        
+        resultsDiv.style.display = 'block';
+        resultsDiv.scrollIntoView({ behavior: 'smooth' });
+        
+        // Mostrar alerta con resumen
+        alert(result.message || `✅ Importación completada: ${result.imported} actas creadas`);
+    },
+
+    downloadExampleTemplate: function() {
+        // Crear datos de ejemplo para la plantilla
+        const templateData = [
+            // Encabezados
+            ['Fecha', 'Ciudad', 'Agente', 'Modelo Camion', 'Año Camion', 'Placa', 'Chofer', 'Telefono Chofer', 'No Guia', 'Cliente', 'Direccion', 'Bultos', 'Pies', 'Kgs', 'Via', 'Subtotal'],
+            // Datos de ejemplo
+            ['2024-12-25', 'Miami', 'Test Agent', 'Freightliner', '2020', 'ABC-123', 'Juan Pérez', '555-1234', 'TEST-001', 'Cliente Ejemplo', 'Calle 123, Miami', '5', '15.5', '30', 'maritimo', '45.75'],
+            ['2024-12-26', 'New York', 'Otro Agente', 'Volvo', '2021', 'XYZ-789', 'María López', '555-5678', 'TEST-002', 'Empresa XYZ', 'Avenida 456, NY', '3', '8.2', '20', 'aereo', '32.50']
+        ];
+        
+        // Convertir a CSV
+        const csvContent = templateData.map(row => 
+            row.map(field => `"${field}"`).join(',')
+        ).join('\n');
+        
+        // Descargar archivo
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'plantilla-importacion-actas.csv';
+        link.click();
+        
+        alert('📥 Plantilla descargada!\n\nPuedes abrir el archivo CSV en Excel y usarlo como referencia para preparar tus datos.');
+    },
+
+    // Función para agregar drag & drop al área de upload
+    setupDragAndDrop: function() {
+        const dropZone = document.querySelector('.upload-drop-zone');
+        
+        if (!dropZone) return;
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight(e) {
+            dropZone.classList.add('dragover');
+        }
+        
+        function unhighlight(e) {
+            dropZone.classList.remove('dragover');
+        }
+        
+        dropZone.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            if (files.length > 0) {
+                const fileInput = document.getElementById('excelFileInput');
+                fileInput.files = files;
+                
+                // Triggear el evento change manualmente
+                const event = new Event('change', { bubbles: true });
+                fileInput.dispatchEvent(event);
+            }
+        }
+    },
+
+    // Test de importación Excel
+    testExcelImport: async function() {
+        try {
+            alert('🧪 Iniciando test de importación Excel...\n\nEste test te permitirá probar la funcionalidad de importación.');
+            
+            // Mostrar la sección de importación
+            App.showExcelImport();
+            
+            alert('✅ Sección de importación mostrada.\n\n📋 Instrucciones:\n1. Descarga la plantilla de ejemplo\n2. Llena algunos datos de prueba\n3. Sube el archivo para probarlo');
+            
+        } catch (error) {
+            console.error('Error en test de importación:', error);
             alert('❌ Error en test: ' + error.message);
         }
     },

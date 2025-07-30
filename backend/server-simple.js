@@ -6,6 +6,8 @@ const path = require('path');
 const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const cookieParser = require('cookie-parser');
+const XLSX = require('xlsx');
+const multer = require('multer');
 
 // Cargar variables de entorno
 require('dotenv').config();
@@ -52,7 +54,25 @@ app.use(express.urlencoded({ extended: true }));
 // Serve static files from the frontend directory
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-
+// Configuración de multer para uploads de archivos
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 10 * 1024 * 1024 // 10MB máximo
+    },
+    fileFilter: (req, file, cb) => {
+        // Permitir solo archivos Excel
+        const allowedTypes = [
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ];
+        if (allowedTypes.includes(file.mimetype) || file.originalname.match(/\.(xlsx|xls)$/)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls)'), false);
+        }
+    }
+});
 
 // Base de datos en memoria usando archivo JSON
 let db = {};
@@ -1155,6 +1175,246 @@ app.post('/api/accounts-receivable/:invoiceId/reminder', authenticateToken, auth
         }
     }
 );
+
+// Excel Import Routes
+app.post('/api/actas/import-excel', authenticateToken, authorizeRoles(['admin']), upload.single('excelFile'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No se ha proporcionado ningún archivo' });
+        }
+
+        console.log(`📊 Procesando archivo Excel: ${req.file.originalname}`);
+
+        // Leer el archivo Excel desde el buffer
+        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+
+        // Convertir a JSON
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        if (rawData.length < 2) {
+            return res.status(400).json({ error: 'El archivo debe tener al menos una fila de encabezados y una fila de datos' });
+        }
+
+        // Procesar datos del Excel
+        const result = await processExcelData(rawData, req.user);
+
+        console.log(`✅ Importación completada: ${result.success} exitosas, ${result.errors.length} errores`);
+
+        res.json({
+            success: true,
+            imported: result.success,
+            errors: result.errors,
+            summary: result.summary,
+            message: `Importación completada: ${result.success} actas creadas${result.errors.length > 0 ? `, ${result.errors.length} errores` : ''}`
+        });
+
+    } catch (error) {
+        console.error('Error procesando archivo Excel:', error);
+        res.status(500).json({ error: 'Error procesando archivo Excel: ' + error.message });
+    }
+});
+
+// Función para procesar datos del Excel
+async function processExcelData(rawData, user) {
+    const headers = rawData[0];
+    const dataRows = rawData.slice(1);
+    
+    let successCount = 0;
+    let errors = [];
+    let createdActas = [];
+
+    // Mapeo de columnas esperadas (flexible)
+    const columnMapping = getColumnMapping(headers);
+
+    for (let i = 0; i < dataRows.length; i++) {
+        const rowIndex = i + 2; // +2 porque empezamos desde la fila 2 (fila 1 son headers)
+        const row = dataRows[i];
+
+        try {
+            // Saltar filas vacías
+            if (!row || row.every(cell => !cell)) {
+                continue;
+            }
+
+            // Extraer datos de la fila
+            const actaData = extractActaDataFromRow(row, columnMapping, rowIndex);
+            
+            // Validar datos requeridos
+            const validation = validateActaData(actaData, rowIndex);
+            if (!validation.isValid) {
+                errors.push(...validation.errors);
+                continue;
+            }
+
+            // Crear el acta
+            const newActa = {
+                id: Date.now().toString() + '_' + i,
+                fecha: actaData.fecha,
+                ciudad: actaData.ciudad,
+                agente: actaData.agente,
+                modeloCamion: actaData.modeloCamion || '',
+                anioCamion: actaData.anioCamion || '',
+                placaCamion: actaData.placaCamion || '',
+                nombreChofer: actaData.nombreChofer || '',
+                telefonoChofer: actaData.telefonoChofer || '',
+                nombreAyudante: actaData.nombreAyudante || '',
+                telefonoAyudante: actaData.telefonoAyudante || '',
+                guides: actaData.guides || [],
+                status: 'pending',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                importedFrom: 'excel',
+                importedBy: user.username,
+                importedAt: new Date()
+            };
+
+            // Agregar a la base de datos
+            db.actas.push(newActa);
+            createdActas.push(newActa);
+            successCount++;
+
+        } catch (error) {
+            errors.push({
+                row: rowIndex,
+                error: `Error procesando fila: ${error.message}`
+            });
+        }
+    }
+
+    // Guardar cambios
+    if (successCount > 0) {
+        saveDatabase();
+    }
+
+    return {
+        success: successCount,
+        errors: errors,
+        summary: {
+            totalRows: dataRows.length,
+            processed: successCount,
+            failed: errors.length,
+            createdActas: createdActas
+        }
+    };
+}
+
+// Función para mapear columnas del Excel
+function getColumnMapping(headers) {
+    const mapping = {};
+    
+    // Mapeo flexible de columnas (insensible a mayúsculas/minúsculas y espacios)
+    const columnPatterns = {
+        fecha: /fecha|date/i,
+        ciudad: /ciudad|city/i,
+        agente: /agente|agent|cliente|client/i,
+        modeloCamion: /modelo\s*camion|truck\s*model|modelo/i,
+        anioCamion: /año\s*camion|year\s*truck|año|year/i,
+        placaCamion: /placa|plate|license/i,
+        nombreChofer: /chofer|driver|conductor/i,
+        telefonoChofer: /telefono\s*chofer|phone\s*driver|tel\s*chofer/i,
+        nombreAyudante: /ayudante|helper|assistant/i,
+        telefonoAyudante: /telefono\s*ayudante|phone\s*helper|tel\s*ayudante/i,
+        noGuia: /numero\s*guia|guia|guide\s*number|no\s*guia/i,
+        nombreCliente: /cliente|client|customer/i,
+        direccion: /direccion|address/i,
+        telefono: /telefono|phone|tel/i,
+        bultos: /bultos|packages|paquetes/i,
+        pies: /pies|feet|ft/i,
+        kgs: /kilos|kgs|kg|weight|peso/i,
+        via: /via|route|tipo/i,
+        subtotal: /subtotal|total|amount|monto/i
+    };
+
+    headers.forEach((header, index) => {
+        if (!header) return;
+        
+        const cleanHeader = header.toString().trim();
+        
+        Object.keys(columnPatterns).forEach(field => {
+            if (columnPatterns[field].test(cleanHeader)) {
+                mapping[field] = index;
+            }
+        });
+    });
+
+    return mapping;
+}
+
+// Función para extraer datos del acta de una fila
+function extractActaDataFromRow(row, mapping, rowIndex) {
+    const data = {};
+    
+    // Campos principales del acta
+    Object.keys(mapping).forEach(field => {
+        const colIndex = mapping[field];
+        if (colIndex !== undefined && row[colIndex] !== undefined) {
+            data[field] = row[colIndex];
+        }
+    });
+
+    // Convertir fecha si es necesario
+    if (data.fecha) {
+        try {
+            // Si es un número (fecha Excel), convertir
+            if (typeof data.fecha === 'number') {
+                const excelDate = new Date((data.fecha - 25569) * 86400 * 1000);
+                data.fecha = excelDate.toISOString().split('T')[0];
+            } else if (typeof data.fecha === 'string') {
+                // Intentar parsear como fecha
+                const parsedDate = new Date(data.fecha);
+                if (!isNaN(parsedDate.getTime())) {
+                    data.fecha = parsedDate.toISOString().split('T')[0];
+                }
+            }
+        } catch (error) {
+            console.warn(`Error parsing date in row ${rowIndex}:`, error);
+        }
+    }
+
+    // Si hay datos de guía, crear el array de guías
+    if (data.noGuia || data.nombreCliente) {
+        data.guides = [{
+            noGuia: data.noGuia || `AUTO-${rowIndex}`,
+            nombreCliente: data.nombreCliente || 'Cliente Importado',
+            direccion: data.direccion || '',
+            telefono: data.telefono || '',
+            bultos: parseInt(data.bultos) || 1,
+            pies: parseFloat(data.pies) || 0,
+            kgs: parseFloat(data.kgs) || 0,
+            via: data.via || 'maritimo',
+            subtotal: parseFloat(data.subtotal) || 0,
+            status: 'almacen',
+            createdAt: new Date()
+        }];
+    }
+
+    return data;
+}
+
+// Función para validar datos del acta
+function validateActaData(data, rowIndex) {
+    const errors = [];
+
+    // Validaciones requeridas
+    if (!data.fecha) {
+        errors.push({ row: rowIndex, error: 'Fecha es requerida' });
+    }
+    
+    if (!data.ciudad) {
+        errors.push({ row: rowIndex, error: 'Ciudad es requerida' });
+    }
+    
+    if (!data.agente) {
+        errors.push({ row: rowIndex, error: 'Agente es requerido' });
+    }
+
+    return {
+        isValid: errors.length === 0,
+        errors: errors
+    };
+}
 
 // City Rates Routes
 app.get('/api/city-rates', authenticateToken, async (req, res) => {
