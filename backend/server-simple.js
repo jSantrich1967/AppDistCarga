@@ -653,6 +653,191 @@ app.get('/api/payments/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// Backup Routes
+app.get('/api/backup/export', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
+    try {
+        // Crear respaldo completo de la base de datos
+        const backup = {
+            metadata: {
+                exportDate: new Date().toISOString(),
+                version: '1.0',
+                exportedBy: req.user.username,
+                description: 'Respaldo completo del Sistema de Distribución de Carga'
+            },
+            data: {
+                users: db.users || [],
+                actas: db.actas || [],
+                invoices: db.invoices || [],
+                payments: db.payments || [],
+                agents: db.agents || [],
+                cityRates: db.cityRates || {}
+            },
+            statistics: {
+                totalUsers: (db.users || []).length,
+                totalActas: (db.actas || []).length,
+                totalInvoices: (db.invoices || []).length,
+                totalPayments: (db.payments || []).length,
+                totalAgents: (db.agents || []).length
+            }
+        };
+
+        // Configurar headers para descarga
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="backup-distcarga-${new Date().toISOString().split('T')[0]}.json"`);
+        
+        console.log(`✅ Respaldo exportado por ${req.user.username}`);
+        res.json(backup);
+        
+    } catch (error) {
+        console.error('Error al exportar respaldo:', error);
+        res.status(500).json({ error: 'Error al generar respaldo' });
+    }
+});
+
+app.post('/api/backup/import', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
+    try {
+        const { backupData, options } = req.body;
+        
+        if (!backupData || !backupData.data) {
+            return res.status(400).json({ error: 'Datos de respaldo inválidos' });
+        }
+
+        // Validar estructura del respaldo
+        const requiredTables = ['users', 'actas', 'invoices', 'payments', 'agents', 'cityRates'];
+        const backupTables = Object.keys(backupData.data);
+        
+        // Crear respaldo de los datos actuales antes de importar
+        const currentBackup = {
+            users: db.users || [],
+            actas: db.actas || [],
+            invoices: db.invoices || [],
+            payments: db.payments || [],
+            agents: db.agents || [],
+            cityRates: db.cityRates || {}
+        };
+
+        try {
+            // Opciones de importación
+            const importOptions = {
+                overwrite: options?.overwrite || false,
+                mergeUsers: options?.mergeUsers || false,
+                preservePasswords: options?.preservePasswords !== false
+            };
+
+            let importStats = {
+                imported: {},
+                skipped: {},
+                errors: []
+            };
+
+            // Importar cada tabla
+            for (const table of requiredTables) {
+                if (backupData.data[table]) {
+                    const result = await importTable(table, backupData.data[table], importOptions);
+                    importStats.imported[table] = result.imported;
+                    importStats.skipped[table] = result.skipped;
+                    if (result.errors) {
+                        importStats.errors.push(...result.errors);
+                    }
+                }
+            }
+
+            // Guardar base de datos actualizada
+            saveDatabase();
+
+            console.log(`✅ Respaldo importado por ${req.user.username}:`, importStats);
+            
+            res.json({
+                success: true,
+                message: 'Respaldo importado exitosamente',
+                statistics: importStats,
+                backupInfo: backupData.metadata || {}
+            });
+
+        } catch (importError) {
+            // Restaurar datos originales en caso de error
+            console.error('Error durante importación, restaurando datos originales:', importError);
+            
+            db.users = currentBackup.users;
+            db.actas = currentBackup.actas;
+            db.invoices = currentBackup.invoices;
+            db.payments = currentBackup.payments;
+            db.agents = currentBackup.agents;
+            db.cityRates = currentBackup.cityRates;
+            
+            saveDatabase();
+            
+            throw importError;
+        }
+        
+    } catch (error) {
+        console.error('Error al importar respaldo:', error);
+        res.status(500).json({ error: 'Error al importar respaldo: ' + error.message });
+    }
+});
+
+// Función auxiliar para importar tablas
+async function importTable(tableName, data, options) {
+    let imported = 0;
+    let skipped = 0;
+    let errors = [];
+
+    try {
+        if (tableName === 'users' && options.mergeUsers) {
+            // Fusionar usuarios (no sobrescribir usuarios existentes)
+            for (const user of data) {
+                const existingUser = db.users.find(u => u.username === user.username);
+                if (!existingUser) {
+                    if (!options.preservePasswords) {
+                        // Regenerar hash de contraseña si es necesario
+                        user.password = await bcrypt.hash(user.password || 'defaultPassword', 10);
+                    }
+                    db.users.push(user);
+                    imported++;
+                } else {
+                    skipped++;
+                }
+            }
+        } else if (tableName === 'cityRates') {
+            // Fusionar tarifas de ciudades
+            if (options.overwrite) {
+                db.cityRates = data;
+                imported = Object.keys(data).length;
+            } else {
+                for (const [city, rate] of Object.entries(data)) {
+                    if (!db.cityRates[city]) {
+                        db.cityRates[city] = rate;
+                        imported++;
+                    } else {
+                        skipped++;
+                    }
+                }
+            }
+        } else {
+            // Para otras tablas (actas, invoices, payments, agents)
+            if (options.overwrite) {
+                db[tableName] = data;
+                imported = data.length;
+            } else {
+                // Fusionar sin sobrescribir
+                for (const item of data) {
+                    const existingItem = db[tableName].find(existing => existing.id === item.id);
+                    if (!existingItem) {
+                        db[tableName].push(item);
+                        imported++;
+                    } else {
+                        skipped++;
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        errors.push(`Error en tabla ${tableName}: ${error.message}`);
+    }
+
+    return { imported, skipped, errors };
+}
+
 // City Rates Routes
 app.get('/api/city-rates', authenticateToken, async (req, res) => {
     try {

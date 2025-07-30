@@ -85,6 +85,14 @@ const App = {
         safeAddListener('addCityForm', 'submit', App.handleAddCity);
         safeAddListener('addAgentForm', 'submit', App.handleAddAgent);
         
+        // Backup event listeners
+        safeAddListener('exportBackupBtn', 'click', App.exportBackup);
+        safeAddListener('selectBackupFileBtn', 'click', () => {
+            document.getElementById('importBackupFile').click();
+        });
+        safeAddListener('importBackupFile', 'change', App.handleBackupFileSelection);
+        safeAddListener('importBackupBtn', 'click', App.importBackup);
+        
         // Modales click fuera para cerrar
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
@@ -1940,6 +1948,229 @@ ESTADO DEL SISTEMA
         } catch (error) {
             console.error('Error en test de impresión:', error);
             alert('❌ Error al probar impresión: ' + error.message);
+        }
+    },
+
+    // Backup Management
+    exportBackup: async function() {
+        try {
+            const confirmed = confirm(
+                '¿Desea exportar un respaldo completo del sistema?\n\n' +
+                'Esto incluirá:\n' +
+                '• Todas las actas\n' +
+                '• Todas las facturas\n' +
+                '• Todos los pagos\n' +
+                '• Todos los agentes\n' +
+                '• Configuración de tarifas\n' +
+                '• Usuarios del sistema\n\n' +
+                'El archivo se descargará automáticamente.'
+            );
+            
+            if (!confirmed) return;
+            
+            App.showLoading(true);
+            
+            // Llamar al endpoint de exportación
+            const response = await fetch('/api/backup/export', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Error: ${response.status} ${response.statusText}`);
+            }
+            
+            // Obtener el blob de respuesta
+            const blob = await response.blob();
+            
+            // Crear enlace de descarga
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            
+            // Obtener el nombre del archivo del header
+            const disposition = response.headers.get('Content-Disposition');
+            const filename = disposition ? 
+                disposition.split('filename="')[1].split('"')[0] : 
+                `backup-distcarga-${new Date().toISOString().split('T')[0]}.json`;
+            
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            
+            // Limpiar
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            App.showLoading(false);
+            alert(`✅ Respaldo exportado exitosamente!\n\nArchivo: ${filename}`);
+            
+        } catch (error) {
+            App.showLoading(false);
+            console.error('Error al exportar respaldo:', error);
+            alert('❌ Error al exportar respaldo: ' + error.message);
+        }
+    },
+
+    handleBackupFileSelection: function(e) {
+        const file = e.target.files[0];
+        const fileInfoDiv = document.getElementById('selectedFileInfo');
+        const fileNameSpan = document.getElementById('fileName');
+        const importBtn = document.getElementById('importBackupBtn');
+        
+        if (file) {
+            // Validar que sea un archivo JSON
+            if (!file.name.toLowerCase().endsWith('.json')) {
+                alert('❌ Por favor seleccione un archivo JSON válido');
+                e.target.value = '';
+                return;
+            }
+            
+            // Mostrar información del archivo
+            fileNameSpan.textContent = file.name;
+            fileInfoDiv.style.display = 'block';
+            importBtn.disabled = false;
+            
+            // Guardar referencia al archivo
+            App.selectedBackupFile = file;
+            
+        } else {
+            fileInfoDiv.style.display = 'none';
+            importBtn.disabled = true;
+            App.selectedBackupFile = null;
+        }
+    },
+
+    importBackup: async function() {
+        try {
+            if (!App.selectedBackupFile) {
+                alert('❌ Por favor seleccione un archivo de respaldo primero');
+                return;
+            }
+            
+            // Confirmar importación
+            const confirmed = confirm(
+                '⚠️ ADVERTENCIA: Esta operación puede sobrescribir datos existentes.\n\n' +
+                '¿Está seguro de que desea importar este respaldo?\n\n' +
+                'Se recomienda hacer un respaldo antes de continuar.'
+            );
+            
+            if (!confirmed) return;
+            
+            App.showLoading(true);
+            
+            // Leer el archivo JSON
+            const fileContent = await App.readFileAsText(App.selectedBackupFile);
+            let backupData;
+            
+            try {
+                backupData = JSON.parse(fileContent);
+            } catch (parseError) {
+                throw new Error('Archivo JSON inválido o corrupto');
+            }
+            
+            // Validar estructura básica
+            if (!backupData.data) {
+                throw new Error('Estructura de respaldo inválida - falta sección "data"');
+            }
+            
+            // Obtener opciones de importación
+            const options = {
+                overwrite: document.getElementById('overwriteData').checked,
+                mergeUsers: document.getElementById('mergeUsers').checked,
+                preservePasswords: document.getElementById('preservePasswords').checked
+            };
+            
+            // Enviar al servidor
+            const result = await App.apiCall('/backup/import', {
+                method: 'POST',
+                body: JSON.stringify({
+                    backupData: backupData,
+                    options: options
+                })
+            });
+            
+            App.showLoading(false);
+            
+            // Mostrar resultado
+            let message = '✅ Respaldo importado exitosamente!\n\n';
+            message += '📊 Estadísticas de importación:\n';
+            
+            for (const [table, count] of Object.entries(result.statistics.imported)) {
+                if (count > 0) {
+                    message += `• ${table}: ${count} registros importados\n`;
+                }
+            }
+            
+            for (const [table, count] of Object.entries(result.statistics.skipped)) {
+                if (count > 0) {
+                    message += `• ${table}: ${count} registros omitidos\n`;
+                }
+            }
+            
+            if (result.statistics.errors.length > 0) {
+                message += '\n⚠️ Errores encontrados:\n';
+                result.statistics.errors.forEach(error => {
+                    message += `• ${error}\n`;
+                });
+            }
+            
+            alert(message);
+            
+            // Recargar datos
+            App.loadDashboard();
+            App.loadActas();
+            App.loadInvoices();
+            App.loadPayments();
+            App.loadSettings();
+            
+            // Limpiar selección de archivo
+            document.getElementById('importBackupFile').value = '';
+            document.getElementById('selectedFileInfo').style.display = 'none';
+            document.getElementById('importBackupBtn').disabled = true;
+            App.selectedBackupFile = null;
+            
+        } catch (error) {
+            App.showLoading(false);
+            console.error('Error al importar respaldo:', error);
+            alert('❌ Error al importar respaldo: ' + error.message);
+        }
+    },
+
+    readFileAsText: function(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(new Error('Error al leer el archivo'));
+            reader.readAsText(file);
+        });
+    },
+
+    // Test de sistema de respaldo
+    testBackupSystem: async function() {
+        try {
+            alert('🧪 Iniciando test del sistema de respaldo...');
+            
+            // Verificar que hay datos para respaldar
+            const stats = await App.apiCall('/dashboard');
+            
+            if (stats.totalActas === 0 && stats.totalInvoices === 0) {
+                alert('⚠️ No hay datos para respaldar. Crea algunas actas primero.');
+                return;
+            }
+            
+            alert(`📊 Datos disponibles para respaldar:\n• Actas: ${stats.totalActas}\n• Facturas: ${stats.totalInvoices}\n• Pagos: ${stats.totalPayments}\n\n🔄 Ejecutando exportación...`);
+            
+            // Ejecutar exportación
+            App.exportBackup();
+            
+        } catch (error) {
+            console.error('Error en test de respaldo:', error);
+            alert('❌ Error en test: ' + error.message);
         }
     },
 

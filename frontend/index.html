@@ -303,6 +303,61 @@
                             </button>
                         </form>
                     </div>
+                    
+                    <!-- Sistema de Respaldo -->
+                    <div class="settings-card">
+                        <h3>💾 Sistema de Respaldo</h3>
+                        <p class="text-muted">Gestiona copias de seguridad de todos los datos del sistema</p>
+                        
+                        <div class="backup-actions">
+                            <div class="backup-section">
+                                <h4>📤 Exportar Respaldo</h4>
+                                <p>Descargar una copia completa de todos los datos</p>
+                                <button id="exportBackupBtn" class="btn btn-primary">
+                                    <i class="fas fa-download"></i> Exportar Respaldo
+                                </button>
+                            </div>
+                            
+                            <div class="backup-section">
+                                <h4>📥 Importar Respaldo</h4>
+                                <p>Restaurar datos desde un archivo de respaldo</p>
+                                <div class="import-controls">
+                                    <input type="file" id="importBackupFile" accept=".json" style="display: none;">
+                                    <button id="selectBackupFileBtn" class="btn btn-secondary">
+                                        <i class="fas fa-folder-open"></i> Seleccionar Archivo
+                                    </button>
+                                    <button id="importBackupBtn" class="btn btn-warning" disabled>
+                                        <i class="fas fa-upload"></i> Importar Respaldo
+                                    </button>
+                                </div>
+                                <div id="selectedFileInfo" class="file-info" style="display: none;">
+                                    <small>Archivo seleccionado: <span id="fileName"></span></small>
+                                </div>
+                            </div>
+                            
+                            <div class="backup-section">
+                                <h4>⚙️ Opciones de Importación</h4>
+                                <div class="import-options">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="overwriteData">
+                                        <span>Sobrescribir datos existentes</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="mergeUsers" checked>
+                                        <span>Fusionar usuarios (no duplicar)</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="preservePasswords" checked>
+                                        <span>Preservar contraseñas</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="backup-warning">
+                            <p>⚠️ <strong>Importante:</strong> Hacer respaldos regularmente. La importación puede sobrescribir datos existentes.</p>
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>
