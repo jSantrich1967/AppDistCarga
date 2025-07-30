@@ -3118,34 +3118,34 @@ ESTADO DEL SISTEMA
 
 🔴 CAMPOS REQUERIDOS:
 • Fecha - Fecha del acta (YYYY-MM-DD)
-• Ciudad - Ciudad de destino  
+• Ciudad - Ciudad venezolana (Valencia, Maracaibo, Barquisimeto, etc.)
 • Agente - Nombre del agente/cliente
 
 🔵 CAMPOS OPCIONALES (Vehículo):
 • Modelo Camion - Modelo del vehículo
 • Año Camion - Año del vehículo
-• Placa - Placa del vehículo
+• Placa - Placa venezolana (formato: AB123CD)
 • Chofer - Nombre del conductor
-• Telefono Chofer - Teléfono del conductor
+• Telefono Chofer - Teléfono venezolano (0414-XXX-XXXX)
 • Ayudante - Nombre del ayudante
-• Telefono Ayudante - Teléfono del ayudante
+• Telefono Ayudante - Teléfono venezolano (0424-XXX-XXXX)
 
 🔵 CAMPOS OPCIONALES (Guías):
 • No Guia - Número de guía
 • Cliente - Nombre del cliente final
-• Direccion - Dirección de entrega
-• Telefono - Teléfono del cliente
+• Direccion - Dirección venezolana completa
+• Telefono - Teléfono del cliente (0241-XXX-XXXX)
 • Bultos - Cantidad de bultos
 • Pies - Pies cúbicos
 • Kgs - Peso en kilogramos
-• Via - Tipo de envío (maritimo/aereo)
-• Subtotal - Monto por guía
+• Via - Tipo de envío (terrestre/aereo)
+• Subtotal - Monto en USD o Bs
 
 💡 CONSEJOS:
 • Los nombres de columnas son flexibles
 • Cada fila = una acta completa
 • Si incluyes datos de guía, se crea automáticamente
-• Formatos de fecha: Excel nativo o YYYY-MM-DD
+• Formatos: fechas (YYYY-MM-DD), teléfonos (04XX-XXX-XXXX)
 
 ¿Deseas descargar la plantilla con ejemplos?
         `.trim();
@@ -3175,19 +3175,19 @@ ESTADO DEL SISTEMA
 
             const ejemplos = [
                 [
-                    '2024-12-25', 'Miami', 'Juan Pérez García', 'Freightliner Cascadia', '2020', 'ABC-123',
-                    'Carlos López', '555-1234', 'María González', '555-5678',
-                    'G001-2024', 'Empresa XYZ S.A.', 'Calle 123, Miami FL 33101', '305-555-9999', '5', '15.5', '30', 'maritimo', '45.75'
+                    '2024-12-25', 'Valencia', 'Juan Pérez García', 'Freightliner Cascadia', '2020', 'AB123CD',
+                    'Carlos López', '0414-555-1234', 'María González', '0424-555-5678',
+                    'VLC001-2024', 'Distribuidora Centro C.A.', 'Av. Bolívar Norte, Valencia, Carabobo', '0241-555-9999', '5', '15.5', '30', 'terrestre', '125.75'
                 ],
                 [
-                    '2024-12-26', 'New York', 'Ana Rodríguez', 'Volvo VNL', '2021', 'XYZ-789',
-                    'Roberto Silva', '555-2468', 'Carmen Ruiz', '555-1357',
-                    'G002-2024', 'Comercial ABC', 'Avenida 456, NY 10001', '212-555-8888', '3', '8.2', '20', 'aereo', '32.50'
+                    '2024-12-26', 'Maracaibo', 'Ana Rodríguez', 'Volvo VNL', '2021', 'MC789EF',
+                    'Roberto Silva', '0414-555-2468', 'Carmen Ruiz', '0426-555-1357',
+                    'MCB002-2024', 'Comercial Zulia S.A.', 'Av. 5 de Julio, Maracaibo, Zulia', '0261-555-8888', '3', '8.2', '20', 'aereo', '85.50'
                 ],
                 [
-                    '2024-12-27', 'Los Angeles', 'Luis Mendoza', 'Peterbilt 579', '2019', 'DEF-456',
-                    'Elena Torres', '555-3579', 'Diego Morales', '555-2468',
-                    'G003-2024', 'Distribuidora LA', 'Boulevard 789, LA 90210', '323-555-7777', '8', '22.1', '45', 'maritimo', '68.25'
+                    '2024-12-27', 'Barquisimeto', 'Luis Mendoza', 'Mack Anthem', '2019', 'BQ456GH',
+                    'Elena Torres', '0414-555-3579', 'Diego Morales', '0424-555-2468',
+                    'BQM003-2024', 'Logística Lara C.A.', 'Carrera 19, Barquisimeto, Lara', '0251-555-7777', '8', '22.1', '45', 'terrestre', '195.25'
                 ],
                 [
                     '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -3223,7 +3223,7 @@ ESTADO DEL SISTEMA
                 ['• Bultos - Cantidad de bultos (número)'],
                 ['• Pies - Pies cúbicos (decimal: ej. 15.5)'],
                 ['• Kgs - Peso en kilogramos (decimal: ej. 30.2)'],
-                ['• Via - Tipo de envío: "maritimo" o "aereo"'],
+                ['• Via - Tipo de envío: "terrestre" o "aereo"'],
                 ['• Subtotal - Monto por guía (decimal: ej. 45.75)'],
                 [''],
                 ['📋 INSTRUCCIONES:'],
@@ -3295,9 +3295,9 @@ ESTADO DEL SISTEMA
             // Encabezados con todos los campos
             ['Fecha', 'Ciudad', 'Agente', 'Modelo Camion', 'Año Camion', 'Placa', 'Chofer', 'Telefono Chofer', 'Ayudante', 'Telefono Ayudante', 'No Guia', 'Cliente', 'Direccion', 'Telefono', 'Bultos', 'Pies', 'Kgs', 'Via', 'Subtotal'],
             // Ejemplos completos
-            ['2024-12-25', 'Miami', 'Juan Pérez García', 'Freightliner Cascadia', '2020', 'ABC-123', 'Carlos López', '555-1234', 'María González', '555-5678', 'G001-2024', 'Empresa XYZ S.A.', 'Calle 123, Miami FL 33101', '305-555-9999', '5', '15.5', '30', 'maritimo', '45.75'],
-            ['2024-12-26', 'New York', 'Ana Rodríguez', 'Volvo VNL', '2021', 'XYZ-789', 'Roberto Silva', '555-2468', 'Carmen Ruiz', '555-1357', 'G002-2024', 'Comercial ABC', 'Avenida 456, NY 10001', '212-555-8888', '3', '8.2', '20', 'aereo', '32.50'],
-            ['2024-12-27', 'Los Angeles', 'Luis Mendoza', 'Peterbilt 579', '2019', 'DEF-456', 'Elena Torres', '555-3579', 'Diego Morales', '555-2468', 'G003-2024', 'Distribuidora LA', 'Boulevard 789, LA 90210', '323-555-7777', '8', '22.1', '45', 'maritimo', '68.25']
+            ['2024-12-25', 'Valencia', 'Juan Pérez García', 'Freightliner Cascadia', '2020', 'AB123CD', 'Carlos López', '0414-555-1234', 'María González', '0424-555-5678', 'VLC001-2024', 'Distribuidora Centro C.A.', 'Av. Bolívar Norte, Valencia, Carabobo', '0241-555-9999', '5', '15.5', '30', 'terrestre', '125.75'],
+            ['2024-12-26', 'Maracaibo', 'Ana Rodríguez', 'Volvo VNL', '2021', 'MC789EF', 'Roberto Silva', '0414-555-2468', 'Carmen Ruiz', '0426-555-1357', 'MCB002-2024', 'Comercial Zulia S.A.', 'Av. 5 de Julio, Maracaibo, Zulia', '0261-555-8888', '3', '8.2', '20', 'aereo', '85.50'],
+            ['2024-12-27', 'Barquisimeto', 'Luis Mendoza', 'Mack Anthem', '2019', 'BQ456GH', 'Elena Torres', '0414-555-3579', 'Diego Morales', '0424-555-2468', 'BQM003-2024', 'Logística Lara C.A.', 'Carrera 19, Barquisimeto, Lara', '0251-555-7777', '8', '22.1', '45', 'terrestre', '195.25']
         ];
         
         // Convertir a CSV

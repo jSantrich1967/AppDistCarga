@@ -63,13 +63,13 @@
                 <tr class="required">
                     <td><strong>Ciudad</strong></td>
                     <td>Ciudad de destino</td>
-                    <td>Miami</td>
+                    <td>Valencia</td>
                     <td>✅ SÍ</td>
                 </tr>
                 <tr class="required">
                     <td><strong>Agente</strong></td>
                     <td>Nombre del agente/cliente</td>
-                    <td>Juan Pérez</td>
+                    <td>Juan Pérez García</td>
                     <td>✅ SÍ</td>
                 </tr>
                 <tr class="optional">
@@ -87,7 +87,7 @@
                 <tr class="optional">
                     <td>Placa</td>
                     <td>Placa del vehículo</td>
-                    <td>ABC-123</td>
+                    <td>AB123CD</td>
                     <td>❌ No</td>
                 </tr>
                 <tr class="optional">
@@ -99,7 +99,7 @@
                 <tr class="optional">
                     <td>Telefono Chofer</td>
                     <td>Teléfono del conductor</td>
-                    <td>555-1234</td>
+                    <td>0414-555-1234</td>
                     <td>❌ No</td>
                 </tr>
                 <tr class="optional">
@@ -111,31 +111,31 @@
                 <tr class="optional">
                     <td>Telefono Ayudante</td>
                     <td>Teléfono del ayudante</td>
-                    <td>555-5678</td>
+                    <td>0424-555-5678</td>
                     <td>❌ No</td>
                 </tr>
                 <tr class="optional">
                     <td>No Guia</td>
                     <td>Número de guía</td>
-                    <td>G001-2024</td>
+                    <td>VLC001-2024</td>
                     <td>❌ No</td>
                 </tr>
                 <tr class="optional">
                     <td>Cliente</td>
                     <td>Nombre del cliente final</td>
-                    <td>Empresa XYZ</td>
+                    <td>Distribuidora Centro C.A.</td>
                     <td>❌ No</td>
                 </tr>
                 <tr class="optional">
                     <td>Direccion</td>
                     <td>Dirección de entrega</td>
-                    <td>Calle 123, Miami FL</td>
+                    <td>Av. Bolívar Norte, Valencia, Carabobo</td>
                     <td>❌ No</td>
                 </tr>
                 <tr class="optional">
                     <td>Telefono</td>
                     <td>Teléfono del cliente</td>
-                    <td>305-555-9999</td>
+                    <td>0241-555-9999</td>
                     <td>❌ No</td>
                 </tr>
                 <tr class="optional">
@@ -159,13 +159,13 @@
                 <tr class="optional">
                     <td>Via</td>
                     <td>Tipo de envío</td>
-                    <td>maritimo</td>
+                    <td>terrestre</td>
                     <td>❌ No</td>
                 </tr>
                 <tr class="optional">
                     <td>Subtotal</td>
                     <td>Monto por guía</td>
-                    <td>45.75</td>
+                    <td>125.75</td>
                     <td>❌ No</td>
                 </tr>
             </tbody>
@@ -183,19 +183,19 @@
 
             const ejemplos = [
                 [
-                    '2024-12-25', 'Miami', 'Juan Pérez García', 'Freightliner Cascadia', '2020', 'ABC-123',
-                    'Carlos López', '555-1234', 'María González', '555-5678',
-                    'G001-2024', 'Empresa XYZ S.A.', 'Calle 123, Miami FL 33101', '305-555-9999', '5', '15.5', '30', 'maritimo', '45.75'
+                    '2024-12-25', 'Valencia', 'Juan Pérez García', 'Freightliner Cascadia', '2020', 'AB123CD',
+                    'Carlos López', '0414-555-1234', 'María González', '0424-555-5678',
+                    'VLC001-2024', 'Distribuidora Centro C.A.', 'Av. Bolívar Norte, Valencia, Carabobo', '0241-555-9999', '5', '15.5', '30', 'terrestre', '125.75'
                 ],
                 [
-                    '2024-12-26', 'New York', 'Ana Rodríguez', 'Volvo VNL', '2021', 'XYZ-789',
-                    'Roberto Silva', '555-2468', 'Carmen Ruiz', '555-1357',
-                    'G002-2024', 'Comercial ABC', 'Avenida 456, NY 10001', '212-555-8888', '3', '8.2', '20', 'aereo', '32.50'
+                    '2024-12-26', 'Maracaibo', 'Ana Rodríguez', 'Volvo VNL', '2021', 'MC789EF',
+                    'Roberto Silva', '0414-555-2468', 'Carmen Ruiz', '0426-555-1357',
+                    'MCB002-2024', 'Comercial Zulia S.A.', 'Av. 5 de Julio, Maracaibo, Zulia', '0261-555-8888', '3', '8.2', '20', 'aereo', '85.50'
                 ],
                 [
-                    '2024-12-27', 'Los Angeles', 'Luis Mendoza', 'Peterbilt 579', '2019', 'DEF-456',
-                    'Elena Torres', '555-3579', 'Diego Morales', '555-2468',
-                    'G003-2024', 'Distribuidora LA', 'Boulevard 789, LA 90210', '323-555-7777', '8', '22.1', '45', 'maritimo', '68.25'
+                    '2024-12-27', 'Barquisimeto', 'Luis Mendoza', 'Mack Anthem', '2019', 'BQ456GH',
+                    'Elena Torres', '0414-555-3579', 'Diego Morales', '0424-555-2468',
+                    'BQM003-2024', 'Logística Lara C.A.', 'Carrera 19, Barquisimeto, Lara', '0251-555-7777', '8', '22.1', '45', 'terrestre', '195.25'
                 ]
             ];
 
@@ -213,7 +213,7 @@
                 ['FORMATOS ACEPTADOS:'],
                 ['• Fechas: YYYY-MM-DD (ej: 2024-12-25) o formato Excel'],
                 ['• Números: Solo dígitos (ej: 45.75 para precios)'],
-                ['• Vía: "maritimo" o "aereo"'],
+                ['• Vía: "terrestre" o "aereo"'],
                 [''],
                 ['COLUMNAS REQUERIDAS:'],
                 ['• Fecha - Fecha del acta'],

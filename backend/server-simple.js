@@ -83,19 +83,19 @@ app.get('/api/plantilla-excel', (req, res) => {
 
         const ejemplos = [
             [
-                '2024-12-25', 'Miami', 'Juan Pérez García', 'Freightliner Cascadia', '2020', 'ABC-123',
-                'Carlos López', '555-1234', 'María González', '555-5678',
-                'G001-2024', 'Empresa XYZ S.A.', 'Calle 123, Miami FL 33101', '305-555-9999', '5', '15.5', '30', 'maritimo', '45.75'
+                '2024-12-25', 'Valencia', 'Juan Pérez García', 'Freightliner Cascadia', '2020', 'AB123CD',
+                'Carlos López', '0414-555-1234', 'María González', '0424-555-5678',
+                'VLC001-2024', 'Distribuidora Centro C.A.', 'Av. Bolívar Norte, Valencia, Carabobo', '0241-555-9999', '5', '15.5', '30', 'terrestre', '125.75'
             ],
             [
-                '2024-12-26', 'New York', 'Ana Rodríguez', 'Volvo VNL', '2021', 'XYZ-789',
-                'Roberto Silva', '555-2468', 'Carmen Ruiz', '555-1357',
-                'G002-2024', 'Comercial ABC', 'Avenida 456, NY 10001', '212-555-8888', '3', '8.2', '20', 'aereo', '32.50'
+                '2024-12-26', 'Maracaibo', 'Ana Rodríguez', 'Volvo VNL', '2021', 'MC789EF',
+                'Roberto Silva', '0414-555-2468', 'Carmen Ruiz', '0426-555-1357',
+                'MCB002-2024', 'Comercial Zulia S.A.', 'Av. 5 de Julio, Maracaibo, Zulia', '0261-555-8888', '3', '8.2', '20', 'aereo', '85.50'
             ],
             [
-                '2024-12-27', 'Los Angeles', 'Luis Mendoza', 'Peterbilt 579', '2019', 'DEF-456',
-                'Elena Torres', '555-3579', 'Diego Morales', '555-2468',
-                'G003-2024', 'Distribuidora LA', 'Boulevard 789, LA 90210', '323-555-7777', '8', '22.1', '45', 'maritimo', '68.25'
+                '2024-12-27', 'Barquisimeto', 'Luis Mendoza', 'Mack Anthem', '2019', 'BQ456GH',
+                'Elena Torres', '0414-555-3579', 'Diego Morales', '0424-555-2468',
+                'BQM003-2024', 'Logística Lara C.A.', 'Carrera 19, Barquisimeto, Lara', '0251-555-7777', '8', '22.1', '45', 'terrestre', '195.25'
             ]
         ];
 
@@ -1443,7 +1443,7 @@ function getColumnMapping(headers) {
         bultos: /bultos|packages|paquetes/i,
         pies: /pies|feet|ft/i,
         kgs: /kilos|kgs|kg|weight|peso/i,
-        via: /via|route|tipo/i,
+        via: /via|route|tipo|transporte/i,
         subtotal: /subtotal|total|amount|monto/i
     };
 
@@ -1503,7 +1503,7 @@ function extractActaDataFromRow(row, mapping, rowIndex) {
             bultos: parseInt(data.bultos) || 1,
             pies: parseFloat(data.pies) || 0,
             kgs: parseFloat(data.kgs) || 0,
-            via: data.via || 'maritimo',
+            via: data.via || 'terrestre',
             subtotal: parseFloat(data.subtotal) || 0,
             status: 'almacen',
             createdAt: new Date()
