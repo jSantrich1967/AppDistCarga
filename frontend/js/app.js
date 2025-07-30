@@ -818,7 +818,6 @@ const App = {
 
     viewActaDetails: async function(actaId) {
         try {
-            // Buscar el acta en la lista actual (más simple que hacer API call)
             const allActas = await App.apiCall('/actas');
             const acta = allActas.find(a => a.id === actaId);
             
@@ -827,61 +826,184 @@ const App = {
                 return;
             }
             
-            // Calcular información básica
-            const numGuias = acta.guides ? acta.guides.length : 0;
-            const total = acta.guides ? acta.guides.reduce((sum, guide) => sum + (parseFloat(guide.subtotal) || 0), 0) : 0;
-            
-            // Crear información de guías
-            let guidesInfo = '';
-            if (acta.guides && acta.guides.length > 0) {
-                guidesInfo = acta.guides.map((guide, index) => 
-                    `${index + 1}. ${guide.noGuia} - ${guide.nombreCliente} - ${guide.direccion} - ${guide.bultos} bultos - ${guide.pies} pies³ - $${(guide.subtotal || 0).toFixed(2)}`
-                ).join('\n');
-            } else {
-                guidesInfo = 'No hay guías registradas';
+            // Inicializar estados de guías si no existen
+            if (acta.guides) {
+                acta.guides.forEach(guide => {
+                    if (!guide.status) {
+                        guide.status = 'almacen';
+                    }
+                });
             }
             
-            // Mostrar información completa en alert (simple y funcional)
-            const details = `
-DETALLES DEL ACTA
-================
-
-📋 INFORMACIÓN GENERAL:
-• ID: ${acta.id}
-• Fecha: ${App.formatDate(acta.fecha)}
-• Ciudad: ${acta.ciudad || 'No especificada'}
-• Agente: ${acta.agente || 'No especificado'}
-
-🚛 INFORMACIÓN DEL VEHÍCULO:
-• Camión: ${acta.modeloCamion || 'No especificado'} ${acta.anioCamion || ''}
-• Placa: ${acta.placaCamion || 'Sin placa'}
-• Chofer: ${acta.nombreChofer || 'No especificado'} - ${acta.telefonoChofer || 'Sin teléfono'}
-• Ayudante: ${acta.nombreAyudante || 'No especificado'} - ${acta.telefonoAyudante || 'Sin teléfono'}
-
-📦 RESUMEN DE ENVÍOS:
-• Total de guías: ${numGuias}
-• Total general: $${total.toFixed(2)}
-
-📋 DETALLE DE GUÍAS:
-${guidesInfo}
-            `;
-            
-            // Mostrar en alert
-            alert(details.trim());
-            
-            // Opción adicional: copiar al portapapeles
-            if (navigator.clipboard) {
-                try {
-                    await navigator.clipboard.writeText(details.trim());
-                    console.log('Detalles copiados al portapapeles');
-                } catch (err) {
-                    console.log('No se pudo copiar al portapapeles');
-                }
-            }
+            App.showActaDetailsModal(acta);
             
         } catch (error) {
             console.error('Error loading acta details:', error);
             alert('Error al cargar los detalles del acta: ' + error.message);
+        }
+    },
+
+    showActaDetailsModal: function(acta) {
+        // Crear modal de detalles
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.id = 'actaDetailsModal';
+        
+        // Generar filas de guías con controles de estado
+        let guidesHTML = '';
+        if (acta.guides && acta.guides.length > 0) {
+            guidesHTML = acta.guides.map((guide, index) => {
+                const status = guide.status || 'almacen';
+                return `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td><strong>${guide.noGuia}</strong></td>
+                        <td>${guide.nombreCliente}</td>
+                        <td>${guide.direccion}</td>
+                        <td>${guide.bultos}</td>
+                        <td>${guide.pies}</td>
+                        <td>${guide.kgs}</td>
+                        <td>${guide.via}</td>
+                        <td>$${(guide.subtotal || 0).toFixed(2)}</td>
+                        <td>
+                            <span id="guideStatus_${index}" class="status-badge ${App.getStatusBadgeClass(status)}">
+                                ${App.getStatusText(status)}
+                            </span>
+                            <br>
+                            <button class="btn-mini btn-status" onclick="App.showGuideStatusModal('${acta.id}', ${index}, ${JSON.stringify(guide).replace(/"/g, '&quot;')})" title="Cambiar Estado">
+                                🔄
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        } else {
+            guidesHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">No hay guías registradas</td></tr>';
+        }
+        
+        modal.innerHTML = `
+            <div class="modal-content modal-wide">
+                <div class="modal-header">
+                    <h3>📋 Detalles del Acta ${acta.id}</h3>
+                    <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <!-- Información General -->
+                    <div class="acta-info-grid">
+                        <div class="info-section">
+                            <h4>📅 Información General</h4>
+                            <p><strong>Fecha:</strong> ${App.formatDate(acta.fecha)}</p>
+                            <p><strong>Ciudad:</strong> ${acta.ciudad}</p>
+                            <p><strong>Agente:</strong> ${acta.agente}</p>
+                            <p><strong>Total guías:</strong> ${acta.guides ? acta.guides.length : 0}</p>
+                        </div>
+                        
+                        <div class="info-section">
+                            <h4>🚛 Información del Vehículo</h4>
+                            <p><strong>Camión:</strong> ${acta.modeloCamion} ${acta.anioCamion}</p>
+                            <p><strong>Placa:</strong> ${acta.placaCamion}</p>
+                            <p><strong>Chofer:</strong> ${acta.nombreChofer}</p>
+                            <p><strong>Teléfono:</strong> ${acta.telefonoChofer}</p>
+                            <p><strong>Ayudante:</strong> ${acta.nombreAyudante}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Controles de Estado Masivo (Solo para Admin) -->
+                    <div class="bulk-status-controls" style="margin: 20px 0; padding: 15px; background: #f8fafc; border-radius: 8px;">
+                        <h4>🔄 Actualización Masiva de Estados</h4>
+                        <div class="bulk-controls">
+                            <select id="bulkStatus">
+                                <option value="">Seleccionar estado...</option>
+                                <option value="almacen">📦 En Almacén</option>
+                                <option value="lista_despacho">✅ Lista para Despacho</option>
+                                <option value="en_despacho">🚛 En Despacho</option>
+                                <option value="despachada">🎯 Despachada</option>
+                            </select>
+                            <button class="btn btn-warning btn-sm" onclick="App.applyBulkStatus('${acta.id}')">
+                                Aplicar a Todas las Guías
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Tabla de Guías -->
+                    <div class="guides-section">
+                        <h4>📦 Detalle de Guías con Estados</h4>
+                        <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                            <table class="guides-detail-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>No. Guía</th>
+                                        <th>Cliente</th>
+                                        <th>Dirección</th>
+                                        <th>Bultos</th>
+                                        <th>Pies³</th>
+                                        <th>Kgs</th>
+                                        <th>Vía</th>
+                                        <th>Subtotal</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${guidesHTML}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="this.closest('.modal').remove()">Cerrar</button>
+                    <button type="button" class="btn btn-primary" onclick="App.editActa('${acta.id}')">✏️ Editar Acta</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    },
+
+    applyBulkStatus: async function(actaId) {
+        try {
+            const bulkStatus = document.getElementById('bulkStatus').value;
+            
+            if (!bulkStatus) {
+                alert('Por favor seleccione un estado');
+                return;
+            }
+            
+            const confirmed = confirm(
+                `¿Está seguro de aplicar el estado "${App.getStatusText(bulkStatus)}" a TODAS las guías de esta acta?\n\n` +
+                'Esta acción afectará todas las guías independientemente de su estado actual.'
+            );
+            
+            if (!confirmed) return;
+            
+            // Obtener acta actual
+            const actas = await App.apiCall('/actas');
+            const acta = actas.find(a => a.id === actaId);
+            
+            if (!acta || !acta.guides) {
+                alert('No se encontraron guías para actualizar');
+                return;
+            }
+            
+            // Crear array de actualizaciones
+            const guidesUpdates = acta.guides.map((guide, index) => ({
+                index: index,
+                status: bulkStatus
+            }));
+            
+            // Aplicar actualización masiva
+            await App.updateMultipleGuideStatus(actaId, guidesUpdates, 'Actualización masiva desde vista de detalles');
+            
+            // Recargar modal de detalles
+            const modal = document.getElementById('actaDetailsModal');
+            if (modal) {
+                modal.remove();
+                App.viewActaDetails(actaId);
+            }
+            
+        } catch (error) {
+            console.error('Error en actualización masiva:', error);
         }
     },
 
@@ -2174,6 +2296,216 @@ ESTADO DEL SISTEMA
         }
     },
 
+    // Guide Status Management
+    getStatusText: function(status) {
+        const statusMap = {
+            'almacen': 'En Almacén',
+            'lista_despacho': 'Lista para Despacho',
+            'en_despacho': 'En Despacho',
+            'despachada': 'Despachada'
+        };
+        return statusMap[status] || 'En Almacén';
+    },
+
+    getStatusBadgeClass: function(status) {
+        const classMap = {
+            'almacen': 'status-almacen',
+            'lista_despacho': 'status-lista',
+            'en_despacho': 'status-proceso',
+            'despachada': 'status-completado'
+        };
+        return classMap[status] || 'status-almacen';
+    },
+
+    updateGuideStatus: async function(actaId, guideIndex, newStatus, notes = '') {
+        try {
+            App.showLoading(true);
+            
+            const result = await App.apiCall(`/actas/${actaId}/guides/${guideIndex}/status`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    status: newStatus,
+                    notes: notes
+                })
+            });
+            
+            App.showLoading(false);
+            
+            if (result.success) {
+                // Actualizar la UI
+                const statusElement = document.getElementById(`guideStatus_${guideIndex}`);
+                if (statusElement) {
+                    statusElement.className = `status-badge ${App.getStatusBadgeClass(newStatus)}`;
+                    statusElement.textContent = App.getStatusText(newStatus);
+                }
+                
+                // Mostrar confirmación
+                App.showStatusToast(`✅ Estado actualizado: ${App.getStatusText(newStatus)}`);
+                
+                return result;
+            } else {
+                throw new Error(result.message || 'Error al actualizar estado');
+            }
+            
+        } catch (error) {
+            App.showLoading(false);
+            console.error('Error updating guide status:', error);
+            alert('❌ Error al actualizar estado: ' + error.message);
+            throw error;
+        }
+    },
+
+    updateMultipleGuideStatus: async function(actaId, guidesUpdates, notes = '') {
+        try {
+            App.showLoading(true);
+            
+            const result = await App.apiCall(`/actas/${actaId}/guides/bulk-status`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    guides: guidesUpdates,
+                    notes: notes
+                })
+            });
+            
+            App.showLoading(false);
+            
+            if (result.success) {
+                // Actualizar la UI para cada guía
+                guidesUpdates.forEach(({ index, status }) => {
+                    const statusElement = document.getElementById(`guideStatus_${index}`);
+                    if (statusElement) {
+                        statusElement.className = `status-badge ${App.getStatusBadgeClass(status)}`;
+                        statusElement.textContent = App.getStatusText(status);
+                    }
+                });
+                
+                alert(`✅ ${result.updatedCount} guías actualizadas exitosamente`);
+                return result;
+            } else {
+                throw new Error(result.message || 'Error en actualización masiva');
+            }
+            
+        } catch (error) {
+            App.showLoading(false);
+            console.error('Error updating multiple guide status:', error);
+            alert('❌ Error en actualización masiva: ' + error.message);
+            throw error;
+        }
+    },
+
+    showGuideStatusModal: function(actaId, guideIndex, currentGuide) {
+        const currentStatus = currentGuide.status || 'almacen';
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>📦 Cambiar Estado de Guía</h3>
+                    <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="guide-info">
+                        <h4>Guía: ${currentGuide.noGuia}</h4>
+                        <p><strong>Cliente:</strong> ${currentGuide.nombreCliente}</p>
+                        <p><strong>Estado actual:</strong> <span class="status-badge ${App.getStatusBadgeClass(currentStatus)}">${App.getStatusText(currentStatus)}</span></p>
+                    </div>
+                    
+                    <form id="statusChangeForm">
+                        <div class="form-group">
+                            <label for="newStatus">🔄 Nuevo Estado:</label>
+                            <select id="newStatus" required>
+                                <option value="almacen" ${currentStatus === 'almacen' ? 'selected' : ''}>📦 En Almacén</option>
+                                <option value="lista_despacho" ${currentStatus === 'lista_despacho' ? 'selected' : ''}>✅ Lista para Despacho</option>
+                                <option value="en_despacho" ${currentStatus === 'en_despacho' ? 'selected' : ''}>🚛 En Despacho</option>
+                                <option value="despachada" ${currentStatus === 'despachada' ? 'selected' : ''}>🎯 Despachada</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="statusNotes">📝 Notas (opcional):</label>
+                            <textarea id="statusNotes" rows="3" placeholder="Observaciones sobre el cambio de estado..."></textarea>
+                        </div>
+                        
+                        ${currentGuide.statusHistory && currentGuide.statusHistory.length > 0 ? `
+                        <div class="status-history">
+                            <h5>📊 Historial de Estados:</h5>
+                            <div class="history-list">
+                                ${currentGuide.statusHistory.slice(-3).map(h => `
+                                    <div class="history-item">
+                                        <span class="status-badge ${App.getStatusBadgeClass(h.status)}">${App.getStatusText(h.status)}</span>
+                                        <small>${App.formatDate(h.changedAt)} por ${h.changedBy}</small>
+                                        ${h.notes ? `<p class="notes">${h.notes}</p>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="this.closest('.modal').remove()">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="App.handleStatusChange('${actaId}', ${guideIndex})">💾 Actualizar Estado</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    },
+
+    handleStatusChange: async function(actaId, guideIndex) {
+        try {
+            const newStatus = document.getElementById('newStatus').value;
+            const notes = document.getElementById('statusNotes').value;
+            
+            await App.updateGuideStatus(actaId, guideIndex, newStatus, notes);
+            
+            // Cerrar modal
+            document.querySelector('.modal.active').remove();
+            
+            // Recargar vista de acta si está abierta
+            if (document.getElementById('actaModal').classList.contains('active')) {
+                // Actualizar vista del modal de acta
+                App.loadActaInModal(actaId);
+            }
+            
+        } catch (error) {
+            // Error ya manejado en updateGuideStatus
+        }
+    },
+
+    showStatusToast: function(message) {
+        // Crear toast de notificación
+        const toast = document.createElement('div');
+        toast.className = 'status-toast';
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-weight: 500;
+            animation: slideIn 0.3s ease;
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // Remover después de 3 segundos
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 300);
+        }, 3000);
+    },
+
     // Test del flujo completo: Acta → Factura → Pago
     testFullPaymentFlow: async function() {
         try {
@@ -2246,6 +2578,43 @@ ESTADO DEL SISTEMA
             
         } catch (error) {
             console.error('Error en test completo de pagos:', error);
+            alert('❌ Error en test: ' + error.message);
+        }
+    },
+
+    // Test del sistema de estados de guías
+    testGuideStatusSystem: async function() {
+        try {
+            alert('🧪 Iniciando test del sistema de estados de guías...');
+            
+            // Verificar que hay actas con guías
+            const actas = await App.apiCall('/actas');
+            const actasWithGuides = actas.filter(acta => acta.guides && acta.guides.length > 0);
+            
+            if (actasWithGuides.length === 0) {
+                alert('⚠️ No hay actas con guías para probar. Crea una acta con guías primero.');
+                return;
+            }
+            
+            const testActa = actasWithGuides[0];
+            alert(`📋 Usando acta ${testActa.id} con ${testActa.guides.length} guías para el test`);
+            
+            // Test 1: Cambiar estado individual
+            const firstGuideIndex = 0;
+            await App.updateGuideStatus(testActa.id, firstGuideIndex, 'lista_despacho', 'Test automático - cambio individual');
+            
+            // Test 2: Cambio masivo
+            const guidesUpdates = testActa.guides.slice(0, 2).map((guide, index) => ({
+                index: index,
+                status: 'en_despacho'
+            }));
+            
+            await App.updateMultipleGuideStatus(testActa.id, guidesUpdates, 'Test automático - cambio masivo');
+            
+            alert('✅ Test completado:\n• Estado individual actualizado\n• Estados masivos actualizados\n\n📋 Abre la vista de detalles del acta para ver los cambios');
+            
+        } catch (error) {
+            console.error('Error en test de estados:', error);
             alert('❌ Error en test: ' + error.message);
         }
     },

@@ -838,6 +838,148 @@ async function importTable(tableName, data, options) {
     return { imported, skipped, errors };
 }
 
+// Guide Status Routes
+app.put('/api/actas/:actaId/guides/:guideIndex/status', authenticateToken, authorizeRoles(['admin']),
+    body('status').isIn(['almacen', 'lista_despacho', 'en_despacho', 'despachada']).withMessage('Estado inválido'),
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        try {
+            const { actaId, guideIndex } = req.params;
+            const { status, notes } = req.body;
+            
+            // Encontrar el acta
+            const acta = db.actas.find(a => a.id === actaId);
+            if (!acta) {
+                return res.status(404).json({ error: 'Acta no encontrada' });
+            }
+            
+            // Verificar que el índice de guía es válido
+            const index = parseInt(guideIndex);
+            if (isNaN(index) || index < 0 || index >= acta.guides.length) {
+                return res.status(400).json({ error: 'Índice de guía inválido' });
+            }
+            
+            // Actualizar estado de la guía
+            const guide = acta.guides[index];
+            const previousStatus = guide.status || 'almacen';
+            
+            guide.status = status;
+            guide.statusHistory = guide.statusHistory || [];
+            guide.statusHistory.push({
+                status: status,
+                changedBy: req.user.username,
+                changedAt: new Date(),
+                notes: notes || '',
+                previousStatus: previousStatus
+            });
+            guide.lastStatusUpdate = new Date();
+            
+            // Actualizar acta
+            acta.updatedAt = new Date();
+            saveDatabase();
+            
+            console.log(`✅ Estado de guía ${guide.noGuia} actualizado a: ${status} por ${req.user.username}`);
+            
+            res.json({
+                success: true,
+                guide: guide,
+                message: `Estado actualizado a: ${getStatusText(status)}`
+            });
+            
+        } catch (error) {
+            console.error('Error al actualizar estado de guía:', error);
+            res.status(500).json({ error: 'Error al actualizar estado de guía' });
+        }
+    }
+);
+
+app.put('/api/actas/:actaId/guides/bulk-status', authenticateToken, authorizeRoles(['admin']),
+    body('guides').isArray().withMessage('Se requiere un array de guías'),
+    body('guides.*.index').isInt({ min: 0 }).withMessage('Índice de guía inválido'),
+    body('guides.*.status').isIn(['almacen', 'lista_despacho', 'en_despacho', 'despachada']).withMessage('Estado inválido'),
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        try {
+            const { actaId } = req.params;
+            const { guides, notes } = req.body;
+            
+            // Encontrar el acta
+            const acta = db.actas.find(a => a.id === actaId);
+            if (!acta) {
+                return res.status(404).json({ error: 'Acta no encontrada' });
+            }
+            
+            let updatedCount = 0;
+            let errors = [];
+            
+            // Actualizar cada guía
+            for (const guideUpdate of guides) {
+                try {
+                    const { index, status } = guideUpdate;
+                    
+                    if (index >= 0 && index < acta.guides.length) {
+                        const guide = acta.guides[index];
+                        const previousStatus = guide.status || 'almacen';
+                        
+                        guide.status = status;
+                        guide.statusHistory = guide.statusHistory || [];
+                        guide.statusHistory.push({
+                            status: status,
+                            changedBy: req.user.username,
+                            changedAt: new Date(),
+                            notes: notes || 'Actualización masiva',
+                            previousStatus: previousStatus
+                        });
+                        guide.lastStatusUpdate = new Date();
+                        
+                        updatedCount++;
+                    } else {
+                        errors.push(`Índice ${index} fuera de rango`);
+                    }
+                } catch (err) {
+                    errors.push(`Error en guía ${guideUpdate.index}: ${err.message}`);
+                }
+            }
+            
+            // Actualizar acta
+            acta.updatedAt = new Date();
+            saveDatabase();
+            
+            console.log(`✅ ${updatedCount} guías actualizadas por ${req.user.username}`);
+            
+            res.json({
+                success: true,
+                updatedCount: updatedCount,
+                errors: errors,
+                message: `${updatedCount} guías actualizadas exitosamente`
+            });
+            
+        } catch (error) {
+            console.error('Error en actualización masiva:', error);
+            res.status(500).json({ error: 'Error en actualización masiva' });
+        }
+    }
+);
+
+// Función auxiliar para obtener texto de estado
+function getStatusText(status) {
+    const statusMap = {
+        'almacen': 'En Almacén',
+        'lista_despacho': 'Lista para Despacho',
+        'en_despacho': 'En Despacho',
+        'despachada': 'Despachada'
+    };
+    return statusMap[status] || status;
+}
+
 // City Rates Routes
 app.get('/api/city-rates', authenticateToken, async (req, res) => {
     try {
