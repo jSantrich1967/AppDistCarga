@@ -6,8 +6,18 @@ const path = require('path');
 const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const cookieParser = require('cookie-parser');
-const XLSX = require('xlsx');
-const multer = require('multer');
+// Dependencias con manejo de errores
+let XLSX;
+let multer;
+
+try {
+    XLSX = require('xlsx');
+    multer = require('multer');
+    console.log('✅ Librerías XLSX y Multer cargadas correctamente');
+} catch (error) {
+    console.error('❌ Error cargando librerías:', error.message);
+    // Cargar versión alternativa o deshabilitar funcionalidad
+}
 
 // Cargar variables de entorno
 require('dotenv').config();
@@ -57,6 +67,13 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 // Ruta para descargar plantilla Excel
 app.get('/api/plantilla-excel', (req, res) => {
     try {
+        // Verificar que XLSX esté disponible
+        if (!XLSX) {
+            return res.status(503).json({ 
+                error: 'Funcionalidad de generación Excel no disponible',
+                message: 'La librería XLSX no está instalada correctamente'
+            });
+        }
         // Datos para la plantilla
         const headers = [
             'Fecha', 'Ciudad', 'Agente', 'Modelo Camion', 'Año Camion', 'Placa', 
@@ -143,25 +160,32 @@ app.get('/api/plantilla-excel', (req, res) => {
     }
 });
 
-// Configuración de multer para uploads de archivos
-const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: {
-        fileSize: 10 * 1024 * 1024 // 10MB máximo
-    },
-    fileFilter: (req, file, cb) => {
-        // Permitir solo archivos Excel
-        const allowedTypes = [
-            'application/vnd.ms-excel',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        ];
-        if (allowedTypes.includes(file.mimetype) || file.originalname.match(/\.(xlsx|xls)$/)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls)'), false);
+// Configuración de multer para uploads de archivos (solo si está disponible)
+let upload;
+
+if (multer) {
+    upload = multer({
+        storage: multer.memoryStorage(),
+        limits: {
+            fileSize: 10 * 1024 * 1024 // 10MB máximo
+        },
+        fileFilter: (req, file, cb) => {
+            // Permitir solo archivos Excel
+            const allowedTypes = [
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            ];
+            if (allowedTypes.includes(file.mimetype) || file.originalname.match(/\.(xlsx|xls)$/)) {
+                cb(null, true);
+            } else {
+                cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls)'), false);
+            }
         }
-    }
-});
+    });
+    console.log('✅ Configuración de multer establecida');
+} else {
+    console.warn('⚠️ Multer no disponible - funcionalidad de upload deshabilitada');
+}
 
 // Base de datos en memoria usando archivo JSON
 let db = {};
@@ -1266,7 +1290,16 @@ app.post('/api/accounts-receivable/:invoiceId/reminder', authenticateToken, auth
 );
 
 // Excel Import Routes
-app.post('/api/actas/import-excel', authenticateToken, authorizeRoles(['admin']), upload.single('excelFile'), async (req, res) => {
+app.post('/api/actas/import-excel', authenticateToken, authorizeRoles(['admin']), (req, res, next) => {
+    // Verificar que las librerías estén disponibles
+    if (!XLSX || !multer || !upload) {
+        return res.status(503).json({ 
+            error: 'Funcionalidad de importación Excel no disponible',
+            message: 'Las librerías necesarias no están instaladas correctamente'
+        });
+    }
+    upload.single('excelFile')(req, res, next);
+}, async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No se ha proporcionado ningún archivo' });
