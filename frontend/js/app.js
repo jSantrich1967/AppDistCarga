@@ -3110,13 +3110,194 @@ ESTADO DEL SISTEMA
     },
 
     downloadExampleTemplate: function() {
-        // Crear datos de ejemplo para la plantilla
+        // Mostrar información detallada
+        const templateInfo = `
+📊 PLANTILLA EXCEL PARA IMPORTACIÓN DE ACTAS
+
+📋 ESTRUCTURA COMPLETA:
+
+🔴 CAMPOS REQUERIDOS:
+• Fecha - Fecha del acta (YYYY-MM-DD)
+• Ciudad - Ciudad de destino  
+• Agente - Nombre del agente/cliente
+
+🔵 CAMPOS OPCIONALES (Vehículo):
+• Modelo Camion - Modelo del vehículo
+• Año Camion - Año del vehículo
+• Placa - Placa del vehículo
+• Chofer - Nombre del conductor
+• Telefono Chofer - Teléfono del conductor
+• Ayudante - Nombre del ayudante
+• Telefono Ayudante - Teléfono del ayudante
+
+🔵 CAMPOS OPCIONALES (Guías):
+• No Guia - Número de guía
+• Cliente - Nombre del cliente final
+• Direccion - Dirección de entrega
+• Telefono - Teléfono del cliente
+• Bultos - Cantidad de bultos
+• Pies - Pies cúbicos
+• Kgs - Peso en kilogramos
+• Via - Tipo de envío (maritimo/aereo)
+• Subtotal - Monto por guía
+
+💡 CONSEJOS:
+• Los nombres de columnas son flexibles
+• Cada fila = una acta completa
+• Si incluyes datos de guía, se crea automáticamente
+• Formatos de fecha: Excel nativo o YYYY-MM-DD
+
+¿Deseas descargar la plantilla con ejemplos?
+        `.trim();
+        
+        const confirmed = confirm(templateInfo);
+        if (!confirmed) return;
+
+        // Generar plantilla Excel completa
+        App.generateExcelTemplate();
+    },
+
+    generateExcelTemplate: function() {
+        try {
+            // Verificar si XLSX está disponible (cargado desde CDN en la interfaz de importación)
+            if (typeof XLSX === 'undefined') {
+                // Si no está disponible, generar CSV como respaldo
+                App.generateCSVTemplate();
+                return;
+            }
+
+            // Datos de la plantilla
+            const headers = [
+                'Fecha', 'Ciudad', 'Agente', 'Modelo Camion', 'Año Camion', 'Placa', 
+                'Chofer', 'Telefono Chofer', 'Ayudante', 'Telefono Ayudante',
+                'No Guia', 'Cliente', 'Direccion', 'Telefono', 'Bultos', 'Pies', 'Kgs', 'Via', 'Subtotal'
+            ];
+
+            const ejemplos = [
+                [
+                    '2024-12-25', 'Miami', 'Juan Pérez García', 'Freightliner Cascadia', '2020', 'ABC-123',
+                    'Carlos López', '555-1234', 'María González', '555-5678',
+                    'G001-2024', 'Empresa XYZ S.A.', 'Calle 123, Miami FL 33101', '305-555-9999', '5', '15.5', '30', 'maritimo', '45.75'
+                ],
+                [
+                    '2024-12-26', 'New York', 'Ana Rodríguez', 'Volvo VNL', '2021', 'XYZ-789',
+                    'Roberto Silva', '555-2468', 'Carmen Ruiz', '555-1357',
+                    'G002-2024', 'Comercial ABC', 'Avenida 456, NY 10001', '212-555-8888', '3', '8.2', '20', 'aereo', '32.50'
+                ],
+                [
+                    '2024-12-27', 'Los Angeles', 'Luis Mendoza', 'Peterbilt 579', '2019', 'DEF-456',
+                    'Elena Torres', '555-3579', 'Diego Morales', '555-2468',
+                    'G003-2024', 'Distribuidora LA', 'Boulevard 789, LA 90210', '323-555-7777', '8', '22.1', '45', 'maritimo', '68.25'
+                ],
+                [
+                    '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+                ],
+                [
+                    '⬆️ AGREGA TUS DATOS AQUÍ ⬆️', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+                ]
+            ];
+
+            // Crear hoja de instrucciones
+            const instrucciones = [
+                ['📊 PLANTILLA PARA IMPORTACIÓN DE ACTAS DE DESPACHO'],
+                [''],
+                ['🔴 CAMPOS REQUERIDOS (Obligatorios):'],
+                ['• Fecha - Fecha del acta (formato: YYYY-MM-DD o fecha Excel)'],
+                ['• Ciudad - Ciudad de destino'],
+                ['• Agente - Nombre del agente/cliente'],
+                [''],
+                ['🔵 CAMPOS OPCIONALES (Vehículo):'],
+                ['• Modelo Camion - Modelo del vehículo'],
+                ['• Año Camion - Año del vehículo'],
+                ['• Placa - Placa del vehículo'],
+                ['• Chofer - Nombre del conductor'],
+                ['• Telefono Chofer - Teléfono del conductor'],
+                ['• Ayudante - Nombre del ayudante'],
+                ['• Telefono Ayudante - Teléfono del ayudante'],
+                [''],
+                ['🔵 CAMPOS OPCIONALES (Guías):'],
+                ['• No Guia - Número de guía'],
+                ['• Cliente - Nombre del cliente final'],
+                ['• Direccion - Dirección de entrega'],
+                ['• Telefono - Teléfono del cliente'],
+                ['• Bultos - Cantidad de bultos (número)'],
+                ['• Pies - Pies cúbicos (decimal: ej. 15.5)'],
+                ['• Kgs - Peso en kilogramos (decimal: ej. 30.2)'],
+                ['• Via - Tipo de envío: "maritimo" o "aereo"'],
+                ['• Subtotal - Monto por guía (decimal: ej. 45.75)'],
+                [''],
+                ['📋 INSTRUCCIONES:'],
+                ['1. Ve a la hoja "Actas" (pestaña abajo)'],
+                ['2. Llena tus datos siguiendo los ejemplos'],
+                ['3. Solo Fecha, Ciudad y Agente son obligatorios'],
+                ['4. Cada fila se convertirá en una acta independiente'],
+                ['5. Los nombres de columnas son flexibles'],
+                ['6. Guarda el archivo y súbelo a la aplicación'],
+                [''],
+                ['💡 CONSEJOS:'],
+                ['• Si incluyes datos de guía (No Guia, Cliente, etc.),'],
+                ['  se creará automáticamente una guía por acta'],
+                ['• Puedes tener actas solo con datos básicos'],
+                ['• Las fechas se pueden escribir como 2024-12-25'],
+                ['• Los números decimales usan punto (ej: 45.75)']
+            ];
+
+            // Crear workbook
+            const wb = XLSX.utils.book_new();
+
+            // Agregar hoja de instrucciones
+            const wsInstrucciones = XLSX.utils.aoa_to_sheet(instrucciones);
+            wsInstrucciones['!cols'] = [{wch: 60}]; // Ancho de columna
+            XLSX.utils.book_append_sheet(wb, wsInstrucciones, "📋 Instrucciones");
+
+            // Agregar hoja de actas
+            const datosActas = [headers, ...ejemplos];
+            const wsActas = XLSX.utils.aoa_to_sheet(datosActas);
+
+            // Configurar ancho de columnas
+            const colWidths = [
+                {wch: 12}, {wch: 15}, {wch: 20}, {wch: 18}, {wch: 12}, {wch: 12},
+                {wch: 18}, {wch: 15}, {wch: 18}, {wch: 15},
+                {wch: 15}, {wch: 20}, {wch: 30}, {wch: 15}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 10}, {wch: 10}
+            ];
+            wsActas['!cols'] = colWidths;
+
+            XLSX.utils.book_append_sheet(wb, wsActas, "📊 Actas");
+
+            // Generar archivo y descargarlo
+            const today = new Date().toISOString().split('T')[0];
+            const fileName = `Plantilla_Actas_${today}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+
+            alert(`✅ ¡Plantilla Excel descargada exitosamente!
+
+📄 Archivo: ${fileName}
+📊 Incluye: 
+  • Hoja de instrucciones completas
+  • 3 ejemplos de actas con todos los campos
+  • Formato Excel nativo con columnas ajustadas
+
+💡 Próximos pasos:
+1. Abre el archivo en Excel
+2. Ve a la hoja "📊 Actas"
+3. Llena tus datos siguiendo los ejemplos
+4. Guarda y sube a la aplicación`);
+
+        } catch (error) {
+            console.error('Error generando plantilla Excel:', error);
+            App.generateCSVTemplate(); // Fallback a CSV
+        }
+    },
+
+    generateCSVTemplate: function() {
+        // Fallback: generar CSV si Excel no está disponible
         const templateData = [
-            // Encabezados
-            ['Fecha', 'Ciudad', 'Agente', 'Modelo Camion', 'Año Camion', 'Placa', 'Chofer', 'Telefono Chofer', 'No Guia', 'Cliente', 'Direccion', 'Bultos', 'Pies', 'Kgs', 'Via', 'Subtotal'],
-            // Datos de ejemplo
-            ['2024-12-25', 'Miami', 'Test Agent', 'Freightliner', '2020', 'ABC-123', 'Juan Pérez', '555-1234', 'TEST-001', 'Cliente Ejemplo', 'Calle 123, Miami', '5', '15.5', '30', 'maritimo', '45.75'],
-            ['2024-12-26', 'New York', 'Otro Agente', 'Volvo', '2021', 'XYZ-789', 'María López', '555-5678', 'TEST-002', 'Empresa XYZ', 'Avenida 456, NY', '3', '8.2', '20', 'aereo', '32.50']
+            // Encabezados con todos los campos
+            ['Fecha', 'Ciudad', 'Agente', 'Modelo Camion', 'Año Camion', 'Placa', 'Chofer', 'Telefono Chofer', 'Ayudante', 'Telefono Ayudante', 'No Guia', 'Cliente', 'Direccion', 'Telefono', 'Bultos', 'Pies', 'Kgs', 'Via', 'Subtotal'],
+            // Ejemplos completos
+            ['2024-12-25', 'Miami', 'Juan Pérez García', 'Freightliner Cascadia', '2020', 'ABC-123', 'Carlos López', '555-1234', 'María González', '555-5678', 'G001-2024', 'Empresa XYZ S.A.', 'Calle 123, Miami FL 33101', '305-555-9999', '5', '15.5', '30', 'maritimo', '45.75'],
+            ['2024-12-26', 'New York', 'Ana Rodríguez', 'Volvo VNL', '2021', 'XYZ-789', 'Roberto Silva', '555-2468', 'Carmen Ruiz', '555-1357', 'G002-2024', 'Comercial ABC', 'Avenida 456, NY 10001', '212-555-8888', '3', '8.2', '20', 'aereo', '32.50'],
+            ['2024-12-27', 'Los Angeles', 'Luis Mendoza', 'Peterbilt 579', '2019', 'DEF-456', 'Elena Torres', '555-3579', 'Diego Morales', '555-2468', 'G003-2024', 'Distribuidora LA', 'Boulevard 789, LA 90210', '323-555-7777', '8', '22.1', '45', 'maritimo', '68.25']
         ];
         
         // Convertir a CSV
@@ -3128,10 +3309,16 @@ ESTADO DEL SISTEMA
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = 'plantilla-importacion-actas.csv';
+        const today = new Date().toISOString().split('T')[0];
+        link.download = `Plantilla_Actas_${today}.csv`;
         link.click();
         
-        alert('📥 Plantilla descargada!\n\nPuedes abrir el archivo CSV en Excel y usarlo como referencia para preparar tus datos.');
+        alert(`📥 Plantilla CSV descargada!
+
+⚠️ Nota: Se descargó en formato CSV (Excel no disponible)
+💡 Abre el archivo CSV en Excel para editarlo
+📋 Incluye 3 ejemplos completos
+✅ Solo requiere: Fecha, Ciudad, Agente`);
     },
 
     // Función para agregar drag & drop al área de upload

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Plantilla Excel - Actas de Despacho</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        .btn { background: #28a745; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        .btn:hover { background: #218838; }
+        .info { background: #e8f4f8; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .warning { background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0; color: #856404; }
+        h1, h2 { color: #495057; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
+        th { background: #28a745; color: white; }
+        .required { background: #ffe6e6; }
+        .optional { background: #e6f7ff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Plantilla Excel - Actas de Despacho</h1>
+        
+        <div class="info">
+            <h3>📋 Instrucciones:</h3>
+            <ul>
+                <li>Descarga la plantilla Excel haciendo click en el botón</li>
+                <li>Llena los datos en las columnas correspondientes</li>
+                <li>Solo <strong>Fecha, Ciudad y Agente</strong> son obligatorios</li>
+                <li>Cada fila se convertirá en una acta independiente</li>
+                <li>Guarda el archivo y súbelo en la aplicación</li>
+            </ul>
+        </div>
+
+        <button class="btn" onclick="generarPlantilla()">
+            📥 Descargar Plantilla Excel Completa
+        </button>
+
+        <div class="warning">
+            <strong>💡 Tip:</strong> Los nombres de columnas son flexibles. Puedes usar "Fecha" o "Date", "Ciudad" o "City", etc.
+        </div>
+
+        <h2>📋 Estructura de la Plantilla:</h2>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Columna</th>
+                    <th>Descripción</th>
+                    <th>Ejemplo</th>
+                    <th>Requerida</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="required">
+                    <td><strong>Fecha</strong></td>
+                    <td>Fecha del acta</td>
+                    <td>2024-12-25</td>
+                    <td>✅ SÍ</td>
+                </tr>
+                <tr class="required">
+                    <td><strong>Ciudad</strong></td>
+                    <td>Ciudad de destino</td>
+                    <td>Miami</td>
+                    <td>✅ SÍ</td>
+                </tr>
+                <tr class="required">
+                    <td><strong>Agente</strong></td>
+                    <td>Nombre del agente/cliente</td>
+                    <td>Juan Pérez</td>
+                    <td>✅ SÍ</td>
+                </tr>
+                <tr class="optional">
+                    <td>Modelo Camion</td>
+                    <td>Modelo del vehículo</td>
+                    <td>Freightliner</td>
+                    <td>❌ No</td>
+                </tr>
+                <tr class="optional">
+                    <td>Año Camion</td>
+                    <td>Año del vehículo</td>
+                    <td>2020</td>
+                    <td>❌ No</td>
+                </tr>
+                <tr class="optional">
+                    <td>Placa</td>
+                    <td>Placa del vehículo</td>
+                    <td>ABC-123</td>
+                    <td>❌ No</td>
+                </tr>
+                <tr class="optional">
+                    <td>Chofer</td>
+                    <td>Nombre del conductor</td>
+                    <td>Carlos López</td>
+                    <td>❌ No</td>
+                </tr>
+                <tr class="optional">
+                    <td>Telefono Chofer</td>
+                    <td>Teléfono del conductor</td>
+                    <td>555-1234</td>
+                    <td>❌ No</td>
+                </tr>
+                <tr class="optional">
+                    <td>Ayudante</td>
+                    <td>Nombre del ayudante</td>
+                    <td>María González</td>
+                    <td>❌ No</td>
+                </tr>
+                <tr class="optional">
+                    <td>Telefono Ayudante</td>
+                    <td>Teléfono del ayudante</td>
+                    <td>555-5678</td>
+                    <td>❌ No</td>
+                </tr>
+                <tr class="optional">
+                    <td>No Guia</td>
+                    <td>Número de guía</td>
+                    <td>G001-2024</td>
+                    <td>❌ No</td>
+                </tr>
+                <tr class="optional">
+                    <td>Cliente</td>
+                    <td>Nombre del cliente final</td>
+                    <td>Empresa XYZ</td>
+                    <td>❌ No</td>
+                </tr>
+                <tr class="optional">
+                    <td>Direccion</td>
+                    <td>Dirección de entrega</td>
+                    <td>Calle 123, Miami FL</td>
+                    <td>❌ No</td>
+                </tr>
+                <tr class="optional">
+                    <td>Telefono</td>
+                    <td>Teléfono del cliente</td>
+                    <td>305-555-9999</td>
+                    <td>❌ No</td>
+                </tr>
+                <tr class="optional">
+                    <td>Bultos</td>
+                    <td>Cantidad de bultos</td>
+                    <td>5</td>
+                    <td>❌ No</td>
+                </tr>
+                <tr class="optional">
+                    <td>Pies</td>
+                    <td>Pies cúbicos</td>
+                    <td>15.5</td>
+                    <td>❌ No</td>
+                </tr>
+                <tr class="optional">
+                    <td>Kgs</td>
+                    <td>Peso en kilogramos</td>
+                    <td>30</td>
+                    <td>❌ No</td>
+                </tr>
+                <tr class="optional">
+                    <td>Via</td>
+                    <td>Tipo de envío</td>
+                    <td>maritimo</td>
+                    <td>❌ No</td>
+                </tr>
+                <tr class="optional">
+                    <td>Subtotal</td>
+                    <td>Monto por guía</td>
+                    <td>45.75</td>
+                    <td>❌ No</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function generarPlantilla() {
+            // Crear datos de la plantilla
+            const headers = [
+                'Fecha', 'Ciudad', 'Agente', 'Modelo Camion', 'Año Camion', 'Placa', 
+                'Chofer', 'Telefono Chofer', 'Ayudante', 'Telefono Ayudante',
+                'No Guia', 'Cliente', 'Direccion', 'Telefono', 'Bultos', 'Pies', 'Kgs', 'Via', 'Subtotal'
+            ];
+
+            const ejemplos = [
+                [
+                    '2024-12-25', 'Miami', 'Juan Pérez García', 'Freightliner Cascadia', '2020', 'ABC-123',
+                    'Carlos López', '555-1234', 'María González', '555-5678',
+                    'G001-2024', 'Empresa XYZ S.A.', 'Calle 123, Miami FL 33101', '305-555-9999', '5', '15.5', '30', 'maritimo', '45.75'
+                ],
+                [
+                    '2024-12-26', 'New York', 'Ana Rodríguez', 'Volvo VNL', '2021', 'XYZ-789',
+                    'Roberto Silva', '555-2468', 'Carmen Ruiz', '555-1357',
+                    'G002-2024', 'Comercial ABC', 'Avenida 456, NY 10001', '212-555-8888', '3', '8.2', '20', 'aereo', '32.50'
+                ],
+                [
+                    '2024-12-27', 'Los Angeles', 'Luis Mendoza', 'Peterbilt 579', '2019', 'DEF-456',
+                    'Elena Torres', '555-3579', 'Diego Morales', '555-2468',
+                    'G003-2024', 'Distribuidora LA', 'Boulevard 789, LA 90210', '323-555-7777', '8', '22.1', '45', 'maritimo', '68.25'
+                ]
+            ];
+
+            // Crear hoja de instrucciones
+            const instrucciones = [
+                ['PLANTILLA PARA IMPORTACIÓN DE ACTAS DE DESPACHO'],
+                [''],
+                ['INSTRUCCIONES:'],
+                ['1. Llena los datos en la hoja "Actas" (ver pestaña abajo)'],
+                ['2. Solo Fecha, Ciudad y Agente son obligatorios'],
+                ['3. Cada fila se convertirá en una acta independiente'],
+                ['4. Los nombres de columnas son flexibles (no importan mayúsculas)'],
+                ['5. Guarda el archivo y súbelo en la aplicación'],
+                [''],
+                ['FORMATOS ACEPTADOS:'],
+                ['• Fechas: YYYY-MM-DD (ej: 2024-12-25) o formato Excel'],
+                ['• Números: Solo dígitos (ej: 45.75 para precios)'],
+                ['• Vía: "maritimo" o "aereo"'],
+                [''],
+                ['COLUMNAS REQUERIDAS:'],
+                ['• Fecha - Fecha del acta'],
+                ['• Ciudad - Ciudad de destino'],
+                ['• Agente - Nombre del agente/cliente'],
+                [''],
+                ['COLUMNAS OPCIONALES:'],
+                ['• Modelo Camion, Año Camion, Placa'],
+                ['• Chofer, Telefono Chofer'],
+                ['• Ayudante, Telefono Ayudante'],
+                ['• No Guia, Cliente, Direccion, Telefono'],
+                ['• Bultos, Pies, Kgs, Via, Subtotal'],
+                [''],
+                ['💡 TIP: Si incluyes datos de guía (No Guia, Cliente, etc.),'],
+                ['   se creará automáticamente una guía por cada acta.']
+            ];
+
+            // Crear workbook
+            const wb = XLSX.utils.book_new();
+
+            // Agregar hoja de instrucciones
+            const wsInstrucciones = XLSX.utils.aoa_to_sheet(instrucciones);
+            XLSX.utils.book_append_sheet(wb, wsInstrucciones, "Instrucciones");
+
+            // Agregar hoja de actas con headers y ejemplos
+            const datosActas = [headers, ...ejemplos];
+            const wsActas = XLSX.utils.aoa_to_sheet(datosActas);
+
+            // Configurar ancho de columnas
+            const colWidths = [
+                {wch: 12}, {wch: 15}, {wch: 20}, {wch: 18}, {wch: 12}, {wch: 12},
+                {wch: 18}, {wch: 15}, {wch: 18}, {wch: 15},
+                {wch: 15}, {wch: 20}, {wch: 30}, {wch: 15}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 10}, {wch: 10}
+            ];
+            wsActas['!cols'] = colWidths;
+
+            // Estilo para los headers (primera fila)
+            const headerStyle = {
+                fill: { fgColor: { rgb: "28a745" } },
+                font: { bold: true, color: { rgb: "FFFFFF" } },
+                alignment: { horizontal: "center" }
+            };
+
+            XLSX.utils.book_append_sheet(wb, wsActas, "Actas");
+
+            // Generar archivo y descargarlo
+            const fileName = `Plantilla_Actas_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+
+            alert('📥 ¡Plantilla Excel descargada!\n\n' +
+                  '✅ Archivo: ' + fileName + '\n' +
+                  '📋 Incluye: Instrucciones + 3 ejemplos\n' +
+                  '💡 Llena tus datos y súbelo a la aplicación');
+        }
+    </script>
+</body>
+</html> 

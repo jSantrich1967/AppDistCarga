@@ -54,6 +54,95 @@ app.use(express.urlencoded({ extended: true }));
 // Serve static files from the frontend directory
 app.use(express.static(path.join(__dirname, '../frontend')));
 
+// Ruta para descargar plantilla Excel
+app.get('/api/plantilla-excel', (req, res) => {
+    try {
+        // Datos para la plantilla
+        const headers = [
+            'Fecha', 'Ciudad', 'Agente', 'Modelo Camion', 'Año Camion', 'Placa', 
+            'Chofer', 'Telefono Chofer', 'Ayudante', 'Telefono Ayudante',
+            'No Guia', 'Cliente', 'Direccion', 'Telefono', 'Bultos', 'Pies', 'Kgs', 'Via', 'Subtotal'
+        ];
+
+        const ejemplos = [
+            [
+                '2024-12-25', 'Miami', 'Juan Pérez García', 'Freightliner Cascadia', '2020', 'ABC-123',
+                'Carlos López', '555-1234', 'María González', '555-5678',
+                'G001-2024', 'Empresa XYZ S.A.', 'Calle 123, Miami FL 33101', '305-555-9999', '5', '15.5', '30', 'maritimo', '45.75'
+            ],
+            [
+                '2024-12-26', 'New York', 'Ana Rodríguez', 'Volvo VNL', '2021', 'XYZ-789',
+                'Roberto Silva', '555-2468', 'Carmen Ruiz', '555-1357',
+                'G002-2024', 'Comercial ABC', 'Avenida 456, NY 10001', '212-555-8888', '3', '8.2', '20', 'aereo', '32.50'
+            ],
+            [
+                '2024-12-27', 'Los Angeles', 'Luis Mendoza', 'Peterbilt 579', '2019', 'DEF-456',
+                'Elena Torres', '555-3579', 'Diego Morales', '555-2468',
+                'G003-2024', 'Distribuidora LA', 'Boulevard 789, LA 90210', '323-555-7777', '8', '22.1', '45', 'maritimo', '68.25'
+            ]
+        ];
+
+        // Crear workbook
+        const wb = XLSX.utils.book_new();
+
+        // Hoja de instrucciones
+        const instrucciones = [
+            ['📊 PLANTILLA PARA IMPORTACIÓN DE ACTAS DE DESPACHO'],
+            [''],
+            ['🔴 CAMPOS REQUERIDOS (Obligatorios):'],
+            ['• Fecha - Fecha del acta (YYYY-MM-DD)'],
+            ['• Ciudad - Ciudad de destino'],
+            ['• Agente - Nombre del agente/cliente'],
+            [''],
+            ['🔵 CAMPOS OPCIONALES:'],
+            ['• Modelo Camion, Año Camion, Placa'],
+            ['• Chofer, Telefono Chofer, Ayudante, Telefono Ayudante'],
+            ['• No Guia, Cliente, Direccion, Telefono'],
+            ['• Bultos, Pies, Kgs, Via, Subtotal'],
+            [''],
+            ['📋 INSTRUCCIONES:'],
+            ['1. Ve a la hoja "Actas" (pestaña abajo)'],
+            ['2. Llena tus datos siguiendo los ejemplos'],
+            ['3. Solo Fecha, Ciudad y Agente son obligatorios'],
+            ['4. Cada fila se convertirá en una acta independiente'],
+            ['5. Guarda y sube el archivo a la aplicación']
+        ];
+
+        const wsInstrucciones = XLSX.utils.aoa_to_sheet(instrucciones);
+        wsInstrucciones['!cols'] = [{wch: 50}];
+        XLSX.utils.book_append_sheet(wb, wsInstrucciones, "📋 Instrucciones");
+
+        // Hoja de actas
+        const datosActas = [headers, ...ejemplos];
+        const wsActas = XLSX.utils.aoa_to_sheet(datosActas);
+        
+        const colWidths = [
+            {wch: 12}, {wch: 15}, {wch: 20}, {wch: 18}, {wch: 12}, {wch: 12},
+            {wch: 18}, {wch: 15}, {wch: 18}, {wch: 15},
+            {wch: 15}, {wch: 20}, {wch: 30}, {wch: 15}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 10}, {wch: 10}
+        ];
+        wsActas['!cols'] = colWidths;
+        XLSX.utils.book_append_sheet(wb, wsActas, "📊 Actas");
+
+        // Generar buffer
+        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+        // Configurar headers de respuesta
+        const today = new Date().toISOString().split('T')[0];
+        const filename = `Plantilla_Actas_${today}.xlsx`;
+        
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Length', buffer.length);
+
+        res.send(buffer);
+
+    } catch (error) {
+        console.error('Error generando plantilla Excel:', error);
+        res.status(500).json({ error: 'Error generando plantilla Excel' });
+    }
+});
+
 // Configuración de multer para uploads de archivos
 const upload = multer({
     storage: multer.memoryStorage(),
