@@ -199,14 +199,12 @@ const App = {
         loginForm.reset();
     },
 
-    showMainScreen: async function() { // Make async
+    showMainScreen: async function() {
         loginScreen.classList.remove('active');
         mainScreen.classList.add('active');
         
-        document.body.classList.toggle('admin', currentUser.role === 'admin');
-        
-        document.getElementById('userInfo').textContent = 
-            `${currentUser.name} (${currentUser.role === 'admin' ? 'Administrador' : 'Courier'})`;
+        // Configurar UI según el rol del usuario
+        App.setupUserInterface();
         
         // Configurar event listeners de la pantalla principal
         App.setupMainScreenListeners();
@@ -218,6 +216,137 @@ const App = {
         await App.loadCityRates(); // Cargar tarifas de ciudades
         
         App.showSection('dashboard'); // Mostrar el dashboard después de cargar los datos
+    },
+
+    // Nueva función para configurar la UI según el rol
+    setupUserInterface: function() {
+        const isAdmin = currentUser.role === 'admin';
+        const isCourier = currentUser.role === 'courier';
+        
+        // Configurar clases CSS para styling
+        document.body.classList.toggle('admin', isAdmin);
+        document.body.classList.toggle('courier', isCourier);
+        
+        // Actualizar información del usuario
+        document.getElementById('userInfo').textContent = 
+            `${currentUser.name} (${isAdmin ? 'Administrador' : 'Agente/Cliente'})`;
+        
+        // Configurar visibilidad de elementos según rol
+        App.configureElementVisibility(isAdmin);
+        
+        // Añadir mensajes informativos para usuarios no-admin
+        App.addRoleBasedMessages(isAdmin);
+        
+        console.log(`🔐 UI configurada para rol: ${currentUser.role}`);
+    },
+
+    // Configurar visibilidad de elementos según permisos
+    configureElementVisibility: function(isAdmin) {
+        // Elementos solo para administradores
+        const adminOnlyElements = document.querySelectorAll('.admin-only');
+        adminOnlyElements.forEach(element => {
+            element.style.display = isAdmin ? 'block' : 'none';
+        });
+
+        // Botones específicos del navbar
+        const navButtons = {
+            'settings': isAdmin, // Solo admin puede ver configuración
+            'accountsReceivable': isAdmin, // Solo admin ve cuentas por cobrar
+        };
+
+        Object.entries(navButtons).forEach(([section, allowed]) => {
+            const button = document.querySelector(`[data-section="${section}"]`);
+            if (button) {
+                button.style.display = allowed ? 'block' : 'none';
+            }
+        });
+
+        // Ocultar funciones administrativas en las secciones
+        const adminFunctions = [
+            '#importExcelBtn', // Importación Excel
+            '#exportBackupBtn', // Respaldo
+            '#importBackupBtn', // Restauración
+            '.bulk-status-controls', // Control masivo de estados
+        ];
+
+        adminFunctions.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(element => {
+                element.style.display = isAdmin ? 'block' : 'none';
+            });
+        });
+
+        // Configurar tablas para mostrar solo datos del usuario
+        if (!isAdmin) {
+            App.addUserFilterMessages();
+        }
+    },
+
+    // Añadir mensajes informativos para usuarios no-admin
+    addRoleBasedMessages: function(isAdmin) {
+        if (!isAdmin) {
+            // Añadir mensaje en el dashboard
+            const dashboardSection = document.getElementById('dashboardSection');
+            if (dashboardSection && !dashboardSection.querySelector('.user-role-info')) {
+                const infoMessage = document.createElement('div');
+                infoMessage.className = 'user-role-info';
+                infoMessage.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <span><strong>Vista de Agente:</strong> Solo puedes ver tus propias actas, facturas y guías.</span>
+                    </div>
+                `;
+                dashboardSection.insertBefore(infoMessage, dashboardSection.querySelector('.dashboard-stats'));
+            }
+        }
+    },
+
+    // Añadir mensajes de filtrado por usuario
+    addUserFilterMessages: function() {
+        const sections = [
+            { id: 'actasSection', message: 'Mostrando solo tus actas' },
+            { id: 'invoicesSection', message: 'Mostrando solo tus facturas' },
+            { id: 'paymentsSection', message: 'Mostrando solo tus pagos' }
+        ];
+
+        sections.forEach(({ id, message }) => {
+            const section = document.getElementById(id);
+            if (section && !section.querySelector('.filter-info')) {
+                const filterInfo = document.createElement('div');
+                filterInfo.className = 'filter-info';
+                filterInfo.innerHTML = `
+                    <div class="alert alert-primary">
+                        <i class="fas fa-filter"></i>
+                        <span>${message}</span>
+                    </div>
+                `;
+                const header = section.querySelector('.section-header');
+                if (header) {
+                    header.insertAdjacentElement('afterend', filterInfo);
+                }
+            }
+        });
+    },
+
+    // Función mejorada para verificar permisos
+    hasPermission: function(action) {
+        const permissions = {
+            'admin': ['view_all', 'create', 'edit', 'delete', 'export', 'import', 'settings', 'accounts_receivable'],
+            'courier': ['view_own', 'create', 'edit_own']
+        };
+
+        const userPermissions = permissions[currentUser.role] || [];
+        return userPermissions.includes(action);
+    },
+
+    // Función para verificar si el usuario puede ver datos específicos
+    canViewData: function(dataOwnerId) {
+        if (currentUser.role === 'admin') {
+            return true; // Admin puede ver todo
+        }
+        
+        // Couriers solo pueden ver sus propios datos
+        return dataOwnerId === currentUser.id;
     },
 
     showSection: function(sectionName) {
@@ -316,14 +445,103 @@ const App = {
     // Dashboard
     loadDashboard: async function() {
         try {
+            console.log('🔄 Cargando dashboard...');
             const stats = await App.apiCall('/dashboard');
+            console.log('📊 Stats recibidas:', stats);
+            
+            // Actualizar estadísticas básicas
             document.getElementById('totalActas').textContent = stats.totalActas;
             document.getElementById('totalInvoices').textContent = stats.totalInvoices;
-            document.getElementById('totalBilled').textContent = `$${stats.totalBilled.toFixed(2)}`;
-            document.getElementById('totalCollected').textContent = `$${stats.totalCollected.toFixed(2)}`;
-            document.getElementById('pendingBalance').textContent = `$${stats.pendingBalance.toFixed(2)}`;
+            document.getElementById('totalBilled').textContent = `Bs. ${stats.totalBilled.toFixed(2)}`;
+            document.getElementById('totalCollected').textContent = `Bs. ${stats.totalCollected.toFixed(2)}`;
+            document.getElementById('pendingBalance').textContent = `Bs. ${stats.pendingBalance.toFixed(2)}`;
+            
+            // Actualizar títulos según el rol
+            App.updateDashboardTitles(stats.userRole);
+            
+            // Mostrar estadísticas adicionales para couriers
+            if (stats.userRole === 'courier' && stats.totalGuides !== undefined) {
+                App.addCourierDashboardStats(stats);
+            }
+            
+            console.log('✅ Dashboard actualizado correctamente');
         } catch (error) {
             console.error('Error loading dashboard:', error);
+        }
+    },
+
+    // Actualizar títulos del dashboard según el rol
+    updateDashboardTitles: function(userRole) {
+        const titles = {
+            'admin': {
+                actas: 'Total Actas',
+                invoices: 'Facturas',
+                billed: 'Total Facturado',
+                collected: 'Total Cobrado',
+                pending: 'Saldo Pendiente'
+            },
+            'courier': {
+                actas: 'Mis Actas',
+                invoices: 'Mis Facturas', 
+                billed: 'Mi Total Facturado',
+                collected: 'Mi Total Cobrado',
+                pending: 'Mi Saldo Pendiente'
+            }
+        };
+
+        const currentTitles = titles[userRole] || titles['courier'];
+        
+        const stats = document.querySelectorAll('.stat-card p');
+        if (stats.length >= 5) {
+            stats[0].textContent = currentTitles.actas;
+            stats[1].textContent = currentTitles.invoices;
+            stats[2].textContent = currentTitles.billed;
+            stats[3].textContent = currentTitles.collected;
+            stats[4].textContent = currentTitles.pending;
+        }
+    },
+
+    // Añadir estadísticas específicas para couriers
+    addCourierDashboardStats: function(stats) {
+        const dashboardStats = document.querySelector('.dashboard-stats');
+        
+        // Remover estadísticas anteriores de courier si existen
+        const existingCourierStats = dashboardStats.querySelectorAll('.courier-stat-card');
+        existingCourierStats.forEach(card => card.remove());
+        
+        // Añadir card de total de guías
+        const guidesCard = document.createElement('div');
+        guidesCard.className = 'stat-card courier-stat-card';
+        guidesCard.innerHTML = `
+            <div class="stat-icon">
+                <i class="fas fa-shipping-fast"></i>
+            </div>
+            <div class="stat-content">
+                <h3>${stats.totalGuides || 0}</h3>
+                <p>Mis Guías</p>
+            </div>
+        `;
+        dashboardStats.appendChild(guidesCard);
+        
+        // Añadir distribución de estados si existe
+        if (stats.guidesByStatus && Object.keys(stats.guidesByStatus).length > 0) {
+            const statusCard = document.createElement('div');
+            statusCard.className = 'stat-card courier-stat-card status-breakdown';
+            
+            const statusList = Object.entries(stats.guidesByStatus)
+                .map(([status, count]) => `<span class="status-item">${status}: ${count}</span>`)
+                .join('');
+            
+            statusCard.innerHTML = `
+                <div class="stat-icon">
+                    <i class="fas fa-chart-pie"></i>
+                </div>
+                <div class="stat-content">
+                    <h3>Estados</h3>
+                    <div class="status-breakdown-list">${statusList}</div>
+                </div>
+            `;
+            dashboardStats.appendChild(statusCard);
         }
     },
 

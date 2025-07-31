@@ -376,20 +376,62 @@ app.get('/api/user-profile', authenticateToken, async (req, res) => {
 
 app.get('/api/dashboard', authenticateToken, async (req, res) => {
     try {
-        const totalActas = db.actas.length;
-        const totalInvoices = db.invoices.length;
+        console.log(`📊 Dashboard - Usuario: ${req.user.username} (${req.user.role})`);
+        
+        let actas = db.actas;
+        let invoices = db.invoices;
+        let payments = db.payments || [];
 
-        const totalBilled = db.invoices.reduce((sum, inv) => sum + inv.total, 0);
-        const totalCollected = db.payments.reduce((sum, p) => sum + p.amount, 0);
+        // Filtrar datos según el rol del usuario
+        if (req.user.role === 'courier') {
+            // Filtrar actas del courier
+            actas = actas.filter(acta => acta.courierId === req.user.id);
+            
+            // Filtrar facturas de actas del courier
+            const courierActaIds = actas.map(acta => acta.id);
+            invoices = invoices.filter(invoice => courierActaIds.includes(invoice.actaId));
+            
+            // Filtrar pagos de facturas del courier
+            const courierInvoiceIds = invoices.map(invoice => invoice.id);
+            payments = payments.filter(payment => courierInvoiceIds.includes(payment.invoiceId));
+            
+            console.log(`🔍 Datos filtrados para courier: ${actas.length} actas, ${invoices.length} facturas, ${payments.length} pagos`);
+        }
+
+        const totalActas = actas.length;
+        const totalInvoices = invoices.length;
+        const totalBilled = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+        const totalCollected = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
         const pendingBalance = totalBilled - totalCollected;
 
-        res.json({
+        // Estadísticas adicionales por rol
+        const dashboardData = {
             totalActas,
             totalInvoices,
             totalBilled,
             totalCollected,
-            pendingBalance
-        });
+            pendingBalance,
+            userRole: req.user.role,
+            userName: req.user.name
+        };
+
+        // Añadir estadísticas específicas para couriers
+        if (req.user.role === 'courier') {
+            const totalGuides = actas.reduce((sum, acta) => sum + (acta.guides?.length || 0), 0);
+            const guidesbyStatus = actas.reduce((acc, acta) => {
+                acta.guides?.forEach(guide => {
+                    const status = guide.status || 'Sin Estado';
+                    acc[status] = (acc[status] || 0) + 1;
+                });
+                return acc;
+            }, {});
+
+            dashboardData.totalGuides = totalGuides;
+            dashboardData.guidesByStatus = guidesbyStatus;
+        }
+
+        console.log(`✅ Dashboard data enviada:`, dashboardData);
+        res.json(dashboardData);
     } catch (error) {
         console.error('Error loading dashboard data:', error);
         res.status(500).json({ message: "Error loading dashboard data" });

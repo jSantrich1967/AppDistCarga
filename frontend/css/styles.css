@@ -1815,3 +1815,214 @@ code {
     }
 }
 
+/* Estilos para sistema de roles y permisos */
+.user-role-info {
+    margin-bottom: 20px;
+}
+
+.filter-info {
+    margin-bottom: 15px;
+}
+
+.alert {
+    padding: 12px 16px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    margin-bottom: 15px;
+}
+
+.alert i {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.alert-info {
+    background-color: #e3f2fd;
+    border: 1px solid #90caf9;
+    color: #1565c0;
+}
+
+.alert-primary {
+    background-color: #e8f4fd;
+    border: 1px solid #81d4fa;
+    color: #0277bd;
+}
+
+.alert-warning {
+    background-color: #fff3e0;
+    border: 1px solid #ffcc02;
+    color: #ef6c00;
+}
+
+.alert-success {
+    background-color: #e8f5e8;
+    border: 1px solid #4caf50;
+    color: #2e7d32;
+}
+
+/* Ocultar elementos para usuarios no-admin */
+.courier .admin-only {
+    display: none !important;
+}
+
+/* Estilos específicos para vista de courier */
+.courier .section-header h2::after {
+    content: " (Vista de Agente)";
+    font-size: 0.7em;
+    color: #666;
+    font-weight: normal;
+}
+
+/* Mensajes de estado para usuarios */
+.user-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.user-status-badge.admin {
+    background-color: #f3e5f5;
+    color: #7b1fa2;
+    border: 1px solid #ce93d8;
+}
+
+.user-status-badge.courier {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+    border: 1px solid #81c784;
+}
+
+/* Mejorar visibilidad de información del usuario */
+#userInfo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#userInfo::before {
+    content: "👤";
+    font-size: 16px;
+}
+
+.courier #userInfo::before {
+    content: "📦";
+}
+
+.admin #userInfo::before {
+    content: "🔑";
+}
+
+/* Responsive para mensajes de alerta */
+@media (max-width: 768px) {
+    .alert {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+    
+    .alert i {
+        font-size: 14px;
+    }
+    
+    .user-role-info,
+    .filter-info {
+        margin-bottom: 12px;
+    }
+}
+
+/* Estilos para estadísticas específicas de courier */
+.courier-stat-card {
+    border-left: 4px solid #4caf50;
+}
+
+.status-breakdown {
+    min-height: 120px;
+}
+
+.status-breakdown-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    font-size: 12px;
+}
+
+.status-item {
+    background-color: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+/* Información de usuarios de prueba en login */
+.login-info {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+}
+
+.login-info h4 {
+    margin: 0 0 10px 0;
+    color: #495057;
+    font-size: 16px;
+}
+
+.login-info .user-test {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    margin: 6px 0;
+    background-color: white;
+    border-radius: 4px;
+    border: 1px solid #e9ecef;
+}
+
+.login-info .user-test .user-role {
+    font-weight: 600;
+}
+
+.login-info .user-test .user-role.admin {
+    color: #7b1fa2;
+}
+
+.login-info .user-test .user-role.courier {
+    color: #2e7d32;
+}
+
+.login-info .user-credentials {
+    font-family: monospace;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+/* Mejorar la moneda bolivar */
+.stat-content h3 {
+    font-family: 'Arial', sans-serif;
+}
+
+/* Responsive para estadísticas de courier */
+@media (max-width: 768px) {
+    .status-breakdown-list {
+        font-size: 11px;
+    }
+    
+    .courier-stat-card {
+        margin-top: 10px;
+    }
+    
+    .login-info .user-test {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+}
+
