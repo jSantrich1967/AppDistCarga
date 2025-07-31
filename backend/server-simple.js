@@ -90,12 +90,12 @@ app.get('/api/plantilla-excel', (req, res) => {
             [
                 '2024-12-26', 'Maracaibo', 'Ana Rodríguez', 'Volvo VNL', '2021', 'MC789EF',
                 'Roberto Silva', '0414-555-2468', 'Carmen Ruiz', '0426-555-1357',
-                'MCB002-2024', 'Comercial Zulia S.A.', 'Av. 5 de Julio, Maracaibo, Zulia', '0261-555-8888', '3', '8.2', '20', 'aereo', '85.50'
+                'MCB002-2024; MCB003-2024; MCB004-2024', 'Comercial Zulia S.A.; Empresa ABC C.A.; Distribuidora Norte', 'Av. 5 de Julio; Calle 72; Av. Delicias', '0261-555-8888; 0261-555-7777; 0261-555-6666', '3; 2; 4', '8.2; 5.1; 12.3', '20; 15; 35', 'aereo; terrestre; aereo', '85.50; 65.25; 145.75'
             ],
             [
                 '2024-12-27', 'Barquisimeto', 'Luis Mendoza', 'Mack Anthem', '2019', 'BQ456GH',
                 'Elena Torres', '0414-555-3579', 'Diego Morales', '0424-555-2468',
-                'BQM003-2024', 'Logística Lara C.A.', 'Carrera 19, Barquisimeto, Lara', '0251-555-7777', '8', '22.1', '45', 'terrestre', '195.25'
+                'BQM005-2024', 'Logística Lara C.A.', 'Carrera 19, Barquisimeto, Lara', '0251-555-7777', '8', '22.1', '45', 'terrestre', '195.25'
             ]
         ];
 
@@ -105,21 +105,37 @@ app.get('/api/plantilla-excel', (req, res) => {
             [''],
             ['🔴 CAMPOS REQUERIDOS (Obligatorios):'],
             ['• Fecha - Fecha del acta (YYYY-MM-DD)'],
-            ['• Ciudad - Ciudad de destino'],
+            ['• Ciudad - Ciudad venezolana'],
             ['• Agente - Nombre del agente/cliente'],
             [''],
-            ['🔵 CAMPOS OPCIONALES:'],
-            ['• Modelo Camion, Año Camion, Placa'],
-            ['• Chofer, Telefono Chofer, Ayudante, Telefono Ayudante'],
-            ['• No Guia, Cliente, Direccion, Telefono'],
-            ['• Bultos, Pies, Kgs, Via, Subtotal'],
+            ['🔵 CAMPOS OPCIONALES (Vehículo y Personal):'],
+            ['• Modelo Camion, Año Camion, Placa (formato: AB123CD)'],
+            ['• Chofer, Telefono Chofer (0414-XXX-XXXX)'],
+            ['• Ayudante, Telefono Ayudante (0424-XXX-XXXX)'],
             [''],
-            ['📋 INSTRUCCIONES:'],
+            ['🔵 CAMPOS OPCIONALES (Guías):'],
+            ['• No Guia, Cliente, Direccion, Telefono'],
+            ['• Bultos, Pies, Kgs, Via (terrestre/aereo), Subtotal'],
+            [''],
+            ['📋 INSTRUCCIONES BÁSICAS:'],
             ['1. Ve a la hoja "Actas" (pestaña abajo)'],
             ['2. Llena tus datos siguiendo los ejemplos'],
             ['3. Solo Fecha, Ciudad y Agente son obligatorios'],
             ['4. Cada fila se convertirá en una acta independiente'],
-            ['5. Guarda y sube el archivo a la aplicación']
+            ['5. Guarda y sube el archivo a la aplicación'],
+            [''],
+            ['🔄 MÚLTIPLES GUÍAS EN UNA ACTA:'],
+            ['Para incluir varias guías en una sola acta:'],
+            ['• Separa los valores con punto y coma (;)'],
+            ['• Ejemplo: "VLC001; VLC002; VLC003"'],
+            ['• Si algunos datos son iguales, repite el valor'],
+            ['• Ver ejemplo en fila 2 (Maracaibo - 3 guías)'],
+            [''],
+            ['💡 EJEMPLOS DE MÚLTIPLES GUÍAS:'],
+            ['No Guia: "MCB002-2024; MCB003-2024; MCB004-2024"'],
+            ['Cliente: "Empresa A; Empresa B; Empresa C"'],
+            ['Bultos: "3; 2; 4"'],
+            ['Subtotal: "85.50; 65.25; 145.75"']
         ];
 
         // Hoja de actas con headers y ejemplos
@@ -1493,9 +1509,42 @@ function extractActaDataFromRow(row, mapping, rowIndex) {
         }
     }
 
-    // Si hay datos de guía, crear el array de guías
-    if (data.noGuia || data.nombreCliente) {
-        data.guides = [{
+    // Procesar múltiples guías (separadas por punto y coma o múltiples columnas)
+    data.guides = [];
+    
+    // Método 1: Guías separadas por punto y coma en una celda
+    if (data.noGuia && data.noGuia.includes(';')) {
+        const guias = data.noGuia.split(';');
+        const clientes = (data.nombreCliente || '').split(';');
+        const direcciones = (data.direccion || '').split(';');
+        const telefonos = (data.telefono || '').split(';');
+        const bultos = (data.bultos || '').toString().split(';');
+        const pies = (data.pies || '').toString().split(';');
+        const kgs = (data.kgs || '').toString().split(';');
+        const vias = (data.via || '').split(';');
+        const subtotales = (data.subtotal || '').toString().split(';');
+
+        guias.forEach((guia, index) => {
+            if (guia.trim()) {
+                data.guides.push({
+                    noGuia: guia.trim(),
+                    nombreCliente: (clientes[index] || clientes[0] || 'Cliente Importado').trim(),
+                    direccion: (direcciones[index] || direcciones[0] || '').trim(),
+                    telefono: (telefonos[index] || telefonos[0] || '').trim(),
+                    bultos: parseInt(bultos[index] || bultos[0] || '1') || 1,
+                    pies: parseFloat(pies[index] || pies[0] || '0') || 0,
+                    kgs: parseFloat(kgs[index] || kgs[0] || '0') || 0,
+                    via: (vias[index] || vias[0] || 'terrestre').trim(),
+                    subtotal: parseFloat(subtotales[index] || subtotales[0] || '0') || 0,
+                    status: 'almacen',
+                    createdAt: new Date()
+                });
+            }
+        });
+    }
+    // Método 2: Guía única tradicional
+    else if (data.noGuia || data.nombreCliente) {
+        data.guides.push({
             noGuia: data.noGuia || `AUTO-${rowIndex}`,
             nombreCliente: data.nombreCliente || 'Cliente Importado',
             direccion: data.direccion || '',
@@ -1507,7 +1556,7 @@ function extractActaDataFromRow(row, mapping, rowIndex) {
             subtotal: parseFloat(data.subtotal) || 0,
             status: 'almacen',
             createdAt: new Date()
-        }];
+        });
     }
 
     return data;

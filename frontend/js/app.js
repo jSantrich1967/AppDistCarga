@@ -3182,12 +3182,12 @@ ESTADO DEL SISTEMA
                 [
                     '2024-12-26', 'Maracaibo', 'Ana Rodríguez', 'Volvo VNL', '2021', 'MC789EF',
                     'Roberto Silva', '0414-555-2468', 'Carmen Ruiz', '0426-555-1357',
-                    'MCB002-2024', 'Comercial Zulia S.A.', 'Av. 5 de Julio, Maracaibo, Zulia', '0261-555-8888', '3', '8.2', '20', 'aereo', '85.50'
+                    'MCB002-2024; MCB003-2024; MCB004-2024', 'Comercial Zulia S.A.; Empresa ABC C.A.; Distribuidora Norte', 'Av. 5 de Julio; Calle 72; Av. Delicias', '0261-555-8888; 0261-555-7777; 0261-555-6666', '3; 2; 4', '8.2; 5.1; 12.3', '20; 15; 35', 'aereo; terrestre; aereo', '85.50; 65.25; 145.75'
                 ],
                 [
                     '2024-12-27', 'Barquisimeto', 'Luis Mendoza', 'Mack Anthem', '2019', 'BQ456GH',
                     'Elena Torres', '0414-555-3579', 'Diego Morales', '0424-555-2468',
-                    'BQM003-2024', 'Logística Lara C.A.', 'Carrera 19, Barquisimeto, Lara', '0251-555-7777', '8', '22.1', '45', 'terrestre', '195.25'
+                    'BQM005-2024', 'Logística Lara C.A.', 'Carrera 19, Barquisimeto, Lara', '0251-555-7777', '8', '22.1', '45', 'terrestre', '195.25'
                 ],
                 [
                     '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -3226,7 +3226,7 @@ ESTADO DEL SISTEMA
                 ['• Via - Tipo de envío: "terrestre" o "aereo"'],
                 ['• Subtotal - Monto por guía (decimal: ej. 45.75)'],
                 [''],
-                ['📋 INSTRUCCIONES:'],
+                ['📋 INSTRUCCIONES BÁSICAS:'],
                 ['1. Ve a la hoja "Actas" (pestaña abajo)'],
                 ['2. Llena tus datos siguiendo los ejemplos'],
                 ['3. Solo Fecha, Ciudad y Agente son obligatorios'],
@@ -3234,10 +3234,22 @@ ESTADO DEL SISTEMA
                 ['5. Los nombres de columnas son flexibles'],
                 ['6. Guarda el archivo y súbelo a la aplicación'],
                 [''],
-                ['💡 CONSEJOS:'],
-                ['• Si incluyes datos de guía (No Guia, Cliente, etc.),'],
-                ['  se creará automáticamente una guía por acta'],
-                ['• Puedes tener actas solo con datos básicos'],
+                ['🔄 MÚLTIPLES GUÍAS EN UNA ACTA:'],
+                ['Para incluir varias guías en una sola acta:'],
+                ['• Separa los valores con punto y coma (;)'],
+                ['• Ejemplo: "VLC001-2024; VLC002-2024; VLC003-2024"'],
+                ['• Si algunos datos son iguales, repite el valor'],
+                ['• Ver ejemplo en fila 2 (Maracaibo - 3 guías)'],
+                [''],
+                ['💡 EJEMPLOS DE MÚLTIPLES GUÍAS:'],
+                ['No Guia: "MCB002-2024; MCB003-2024; MCB004-2024"'],
+                ['Cliente: "Empresa A; Empresa B; Empresa C"'],
+                ['Bultos: "3; 2; 4"'],
+                ['Subtotal: "85.50; 65.25; 145.75"'],
+                [''],
+                ['💡 CONSEJOS ADICIONALES:'],
+                ['• Si incluyes datos de guía, se crean automáticamente'],
+                ['• Puedes tener actas solo con datos básicos (sin guías)'],
                 ['• Las fechas se pueden escribir como 2024-12-25'],
                 ['• Los números decimales usan punto (ej: 45.75)']
             ];
@@ -3296,8 +3308,8 @@ ESTADO DEL SISTEMA
             ['Fecha', 'Ciudad', 'Agente', 'Modelo Camion', 'Año Camion', 'Placa', 'Chofer', 'Telefono Chofer', 'Ayudante', 'Telefono Ayudante', 'No Guia', 'Cliente', 'Direccion', 'Telefono', 'Bultos', 'Pies', 'Kgs', 'Via', 'Subtotal'],
             // Ejemplos completos
             ['2024-12-25', 'Valencia', 'Juan Pérez García', 'Freightliner Cascadia', '2020', 'AB123CD', 'Carlos López', '0414-555-1234', 'María González', '0424-555-5678', 'VLC001-2024', 'Distribuidora Centro C.A.', 'Av. Bolívar Norte, Valencia, Carabobo', '0241-555-9999', '5', '15.5', '30', 'terrestre', '125.75'],
-            ['2024-12-26', 'Maracaibo', 'Ana Rodríguez', 'Volvo VNL', '2021', 'MC789EF', 'Roberto Silva', '0414-555-2468', 'Carmen Ruiz', '0426-555-1357', 'MCB002-2024', 'Comercial Zulia S.A.', 'Av. 5 de Julio, Maracaibo, Zulia', '0261-555-8888', '3', '8.2', '20', 'aereo', '85.50'],
-            ['2024-12-27', 'Barquisimeto', 'Luis Mendoza', 'Mack Anthem', '2019', 'BQ456GH', 'Elena Torres', '0414-555-3579', 'Diego Morales', '0424-555-2468', 'BQM003-2024', 'Logística Lara C.A.', 'Carrera 19, Barquisimeto, Lara', '0251-555-7777', '8', '22.1', '45', 'terrestre', '195.25']
+            ['2024-12-26', 'Maracaibo', 'Ana Rodríguez', 'Volvo VNL', '2021', 'MC789EF', 'Roberto Silva', '0414-555-2468', 'Carmen Ruiz', '0426-555-1357', 'MCB002-2024; MCB003-2024; MCB004-2024', 'Comercial Zulia S.A.; Empresa ABC C.A.; Distribuidora Norte', 'Av. 5 de Julio; Calle 72; Av. Delicias', '0261-555-8888; 0261-555-7777; 0261-555-6666', '3; 2; 4', '8.2; 5.1; 12.3', '20; 15; 35', 'aereo; terrestre; aereo', '85.50; 65.25; 145.75'],
+            ['2024-12-27', 'Barquisimeto', 'Luis Mendoza', 'Mack Anthem', '2019', 'BQ456GH', 'Elena Torres', '0414-555-3579', 'Diego Morales', '0424-555-2468', 'BQM005-2024', 'Logística Lara C.A.', 'Carrera 19, Barquisimeto, Lara', '0251-555-7777', '8', '22.1', '45', 'terrestre', '195.25']
         ];
         
         // Convertir a CSV
