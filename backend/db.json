@@ -19,11 +19,14 @@
   "invoices": [],
   "payments": [],
   "cityRates": {
-    "Miami": 2.5,
-    "New York": 3,
-    "Los Angeles": 2.8,
-    "Houston": 2.2,
-    "Chicago": 2.7
+    "Caracas": 15.00,
+    "Maracaibo": 18.50,
+    "Valencia": 12.75,
+    "Barquisimeto": 14.25,
+    "Maracay": 13.00,
+    "Puerto La Cruz": 16.00,
+    "San Cristóbal": 20.00,
+    "Maturín": 19.50
   },
   "agents": []
 }

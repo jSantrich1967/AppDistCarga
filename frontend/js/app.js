@@ -1920,7 +1920,7 @@ ${App.formatDate(payment.createdAt)}
         try {
             const simpleActa = {
                 fecha: new Date().toISOString().split('T')[0],
-                ciudad: 'Miami',
+                ciudad: 'Caracas',
                 agente: 'Test Agent',
                 guides: [{
                     noGuia: 'TEST001',
@@ -2023,7 +2023,7 @@ ESTADO DEL SISTEMA
             // 1. Crear acta de prueba
             const actaTest = {
                 fecha: new Date().toISOString().split('T')[0],
-                ciudad: 'Miami',
+                ciudad: 'Caracas',
                 agente: 'Test Agent',
                 modeloCamion: 'Freightliner',
                 anioCamion: '2020',
@@ -2532,7 +2532,7 @@ ESTADO DEL SISTEMA
             // 1. Crear acta de prueba
             const actaTest = {
                 fecha: new Date().toISOString().split('T')[0],
-                ciudad: 'Miami',
+                ciudad: 'Caracas',
                 agente: 'Test Agent',
                 modeloCamion: 'Freightliner',
                 anioCamion: '2020',
