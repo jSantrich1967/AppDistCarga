@@ -6,17 +6,28 @@ const path = require('path');
 const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const cookieParser = require('cookie-parser');
-// Dependencias con manejo de errores
+// Dependencias con manejo de errores y fallbacks
 let xlsx;
 let multer;
+let hasExcelSupport = false;
+let hasUploadSupport = false;
 
 try {
-    xlsx = require('node-xlsx');
-    multer = require('multer');
-    console.log('✅ Librerías node-xlsx y Multer cargadas correctamente');
+    xlsx = require('xlsx');
+    hasExcelSupport = true;
+    console.log('✅ Librería XLSX cargada correctamente');
 } catch (error) {
-    console.error('❌ Error cargando librerías:', error.message);
-    // Cargar versión alternativa o deshabilitar funcionalidad
+    console.warn('⚠️ XLSX no disponible, usando procesamiento básico:', error.message);
+    hasExcelSupport = false;
+}
+
+try {
+    multer = require('multer');
+    hasUploadSupport = true;
+    console.log('✅ Librería Multer cargada correctamente');
+} catch (error) {
+    console.warn('⚠️ Multer no disponible, usando procesamiento básico:', error.message);
+    hasUploadSupport = false;
 }
 
 // Cargar variables de entorno
@@ -67,11 +78,11 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 // Ruta para descargar plantilla Excel
 app.get('/api/plantilla-excel', (req, res) => {
     try {
-        // Verificar que node-xlsx esté disponible
-        if (!xlsx) {
+        // Verificar que XLSX esté disponible
+        if (!hasExcelSupport) {
             return res.status(503).json({ 
                 error: 'Funcionalidad de generación Excel no disponible',
-                message: 'La librería node-xlsx no está instalada correctamente'
+                message: 'La librería XLSX no está instalada correctamente'
             });
         }
         // Datos para la plantilla
@@ -138,23 +149,29 @@ app.get('/api/plantilla-excel', (req, res) => {
             ['Subtotal: "85.50; 65.25; 145.75"']
         ];
 
+        // Crear workbook usando XLSX
+        const wb = xlsx.utils.book_new();
+
+        // Agregar hoja de instrucciones
+        const wsInstrucciones = xlsx.utils.aoa_to_sheet(instrucciones);
+        wsInstrucciones['!cols'] = [{wch: 60}]; // Ancho de columna
+        xlsx.utils.book_append_sheet(wb, wsInstrucciones, "📋 Instrucciones");
+
         // Hoja de actas con headers y ejemplos
         const datosActas = [headers, ...ejemplos];
-
-        // Crear workbook con ambas hojas usando node-xlsx
-        const workbookData = [
-            {
-                name: 'Instrucciones',
-                data: instrucciones
-            },
-            {
-                name: 'Actas',
-                data: datosActas
-            }
+        const wsActas = xlsx.utils.aoa_to_sheet(datosActas);
+        
+        // Configurar ancho de columnas
+        const colWidths = [
+            {wch: 12}, {wch: 15}, {wch: 20}, {wch: 18}, {wch: 12}, {wch: 12},
+            {wch: 18}, {wch: 15}, {wch: 18}, {wch: 15},
+            {wch: 15}, {wch: 20}, {wch: 30}, {wch: 15}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 10}, {wch: 10}
         ];
+        wsActas['!cols'] = colWidths;
+        xlsx.utils.book_append_sheet(wb, wsActas, "📊 Actas");
 
-        // Generar buffer usando node-xlsx
-        const buffer = xlsx.build(workbookData);
+        // Generar buffer usando XLSX
+        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
         // Configurar headers de respuesta
         const today = new Date().toISOString().split('T')[0];
@@ -175,7 +192,7 @@ app.get('/api/plantilla-excel', (req, res) => {
 // Configuración de multer para uploads de archivos (solo si está disponible)
 let upload;
 
-if (multer) {
+if (hasUploadSupport && multer) {
     upload = multer({
         storage: multer.memoryStorage(),
         limits: {
@@ -1304,10 +1321,15 @@ app.post('/api/accounts-receivable/:invoiceId/reminder', authenticateToken, auth
 // Excel Import Routes
 app.post('/api/actas/import-excel', authenticateToken, authorizeRoles(['admin']), (req, res, next) => {
     // Verificar que las librerías estén disponibles
-    if (!xlsx || !multer || !upload) {
+    if (!hasExcelSupport || !hasUploadSupport || !upload) {
         return res.status(503).json({ 
             error: 'Funcionalidad de importación Excel no disponible',
-            message: 'Las librerías necesarias no están instaladas correctamente'
+            message: 'Las librerías necesarias no están instaladas correctamente',
+            details: {
+                excelSupport: hasExcelSupport,
+                uploadSupport: hasUploadSupport,
+                uploadConfigured: !!upload
+            }
         });
     }
     upload.single('excelFile')(req, res, next);
@@ -1319,15 +1341,13 @@ app.post('/api/actas/import-excel', authenticateToken, authorizeRoles(['admin'])
 
         console.log(`📊 Procesando archivo Excel: ${req.file.originalname}`);
 
-        // Leer el archivo Excel desde el buffer usando node-xlsx
-        const workbook = xlsx.parse(req.file.buffer);
-        
-        if (!workbook || workbook.length === 0) {
-            return res.status(400).json({ error: 'No se pudieron leer las hojas del archivo Excel' });
-        }
+        // Leer el archivo Excel desde el buffer usando XLSX
+        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
 
-        // Obtener la primera hoja y sus datos
-        const rawData = workbook[0].data;
+        // Convertir a JSON
+        const rawData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
 
         if (rawData.length < 2) {
             return res.status(400).json({ error: 'El archivo debe tener al menos una fila de encabezados y una fila de datos' });
