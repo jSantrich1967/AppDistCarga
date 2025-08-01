@@ -1045,6 +1045,14 @@ const App = {
             guidesTableBody.innerHTML = '';
         }
         
+        // Asegurar que las tarifas de ciudad estén cargadas
+        if (Object.keys(cityRates).length === 0) {
+            console.log('🔄 Cargando tarifas de ciudad...');
+            await App.loadCityRates();
+        }
+        
+        console.log(`💰 Tarifas disponibles:`, cityRates);
+        
         // Actualizar selectores
         App.updateCitySelects();
         try {
@@ -1401,6 +1409,15 @@ const App = {
         const row = tbody.insertRow();
         const rowNumber = tbody.rows.length;
         
+        // Calcular subtotal si vienen datos del Excel/CSV
+        let calculatedSubtotal = '';
+        if (guide.piesCubicos && guide.destino) {
+            const ciudad = document.querySelector('#actaForm [name="ciudad"]').value || guide.destino;
+            const rate = cityRates[ciudad] || cityRates[guide.destino] || 0;
+            calculatedSubtotal = App.calculateSubtotal(guide.piesCubicos, ciudad);
+            console.log(`💰 Guía ${rowNumber}: ${guide.piesCubicos} pies³ × $${rate} = $${calculatedSubtotal.toFixed(2)}`);
+        }
+        
         row.innerHTML = `
             <td><input type="text" name="no" readonly value="${rowNumber}" style="background: #f5f5f5; width: 50px;"></td>
             <td><input type="text" name="warehouse" placeholder="Almacén" value="${guide.warehouse || ''}"></td>
@@ -1418,7 +1435,7 @@ const App = {
             <td><input type="text" name="embarcador" placeholder="Empresa embarcadora" value="${guide.embarcador || ''}"></td>
             <td><input type="number" name="cantTeorica" min="0" step="1" placeholder="Cant. teórica" value="${guide.cantTeorica || ''}"></td>
             <td><input type="number" name="cantDespachada" min="0" step="1" placeholder="Cant. despachada" value="${guide.cantDespachada || ''}"></td>
-            <td><input type="number" name="piesCubicos" min="0.01" step="0.01" onchange="App.updateRowSubtotal(this)" placeholder="Pies³" value="${guide.piesCubicos || ''}"></td>
+            <td><input type="number" name="piesCubicos" min="0.01" step="0.01" onchange="App.updateRowSubtotal(this)" placeholder="Pies³" value="${guide.piesCubicos || ''}" title="${calculatedSubtotal ? 'Subtotal: $' + calculatedSubtotal.toFixed(2) : ''}"></td>
             <td><input type="number" name="peso" min="0.01" step="0.01" placeholder="Kg" value="${guide.peso || ''}"></td>
             <td><input type="text" name="destino" placeholder="Ciudad destino" value="${guide.destino ||  ''}"></td>
             <td><input type="text" name="direccion" required placeholder="Dirección completa" value="${guide.direccion || ''}"></td>
@@ -1426,7 +1443,9 @@ const App = {
                 <button type="button" class="btn btn-danger" onclick="App.removeGuideRow(this)"><i class="fas fa-trash"></i></button>
             </td>
         `;
-        App.updateTotal();
+        
+        // Actualizar total después de agregar la fila
+        setTimeout(() => App.updateTotal(), 100);
     },
 
     removeGuideRow: function(button) {
@@ -1466,20 +1485,63 @@ const App = {
     updateTotal: function() {
         // Calcular total basado en pies cúbicos de todas las guías
         const guidesTable = document.querySelector('#guidesTable tbody');
-        const ciudad = document.querySelector('#actaForm [name="ciudad"]').value;
+        const ciudadSelect = document.querySelector('#actaForm [name="ciudad"]');
+        const ciudad = ciudadSelect ? ciudadSelect.value : '';
         const rate = cityRates[ciudad] || 0;
         let total = 0;
+        let guidesCount = 0;
+        let totalPiesCubicos = 0;
+        
+        console.log(`🧮 Calculando total - Ciudad: ${ciudad}, Tarifa: $${rate}`);
+        
+        if (!guidesTable) {
+            console.warn('⚠️ Tabla de guías no encontrada');
+            return;
+        }
         
         const rows = guidesTable.querySelectorAll('tr');
-        rows.forEach(row => {
+        rows.forEach((row, index) => {
             const piesCubicosInput = row.querySelector('input[name="piesCubicos"]');
+            const destinoInput = row.querySelector('input[name="destino"]');
+            
             if (piesCubicosInput) {
                 const piesCubicos = parseFloat(piesCubicosInput.value) || 0;
-                total += piesCubicos * rate;
+                const destino = destinoInput ? destinoInput.value : '';
+                
+                // Usar tarifa de la ciudad del acta o del destino de la guía
+                let tarifaUsada = rate;
+                if (!tarifaUsada && destino && cityRates[destino]) {
+                    tarifaUsada = cityRates[destino];
+                    console.log(`🎯 Usando tarifa de destino ${destino}: $${tarifaUsada}`);
+                }
+                
+                const subtotal = piesCubicos * tarifaUsada;
+                total += subtotal;
+                totalPiesCubicos += piesCubicos;
+                guidesCount++;
+                
+                console.log(`📋 Guía ${index + 1}: ${piesCubicos} pies³ × $${tarifaUsada} = $${subtotal.toFixed(2)}`);
             }
         });
         
-        document.getElementById('totalGeneral').textContent = total.toFixed(2);
+        console.log(`📊 Resumen: ${guidesCount} guías, ${totalPiesCubicos} pies³ total, Total: $${total.toFixed(2)}`);
+        
+        const totalElement = document.getElementById('totalGeneral');
+        if (totalElement) {
+            totalElement.textContent = total.toFixed(2);
+        } else {
+            console.warn('⚠️ Elemento totalGeneral no encontrado');
+        }
+        
+        // Mostrar información de debug en la UI si es necesario
+        if (total === 0 && guidesCount > 0) {
+            console.warn('⚠️ Total es $0 - verifica que haya una ciudad seleccionada con tarifa');
+            if (!ciudad) {
+                console.warn('❌ No hay ciudad seleccionada en el acta');
+            } else if (!rate) {
+                console.warn(`❌ No hay tarifa configurada para la ciudad: ${ciudad}`);
+            }
+        }
     },
 
     // Invoices Management
@@ -3462,13 +3524,37 @@ ESTADO DEL SISTEMA
 
             // Agregar las guías al formulario actual
             if (result.guides && result.guides.length > 0) {
-                result.guides.forEach(guide => {
-                    App.addGuideRow(guide);
-                });
+                console.log(`📦 Agregando ${result.guides.length} guías al formulario...`);
                 
-                App.updateTotal();
-                alert(`✅ ¡${result.guides.length} guías importadas correctamente!\n\nLas guías se han agregado a esta acta.`);
-                App.hideGuidesImport();
+                // Verificar que las cityRates estén cargadas
+                if (Object.keys(cityRates).length === 0) {
+                    console.warn('⚠️ Tarifas de ciudad no cargadas, cargando...');
+                    await App.loadCityRates();
+                }
+                
+                // Agregar cada guía con un pequeño delay para asegurar rendering
+                for (let i = 0; i < result.guides.length; i++) {
+                    const guide = result.guides[i];
+                    console.log(`📋 Agregando guía ${i + 1}:`, guide);
+                    App.addGuideRow(guide);
+                    
+                    // Pequeño delay para asegurar que el DOM se actualice
+                    if (i < result.guides.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                    }
+                }
+                
+                // Actualizar total final
+                setTimeout(() => {
+                    App.updateTotal();
+                    const totalElement = document.getElementById('totalGeneral');
+                    const total = totalElement ? totalElement.textContent : '0.00';
+                    console.log(`💰 Total calculado: $${total}`);
+                    
+                    alert(`✅ ¡${result.guides.length} guías importadas correctamente!\n\n💰 Total: $${total}\n\nLas guías se han agregado a esta acta.`);
+                    App.hideGuidesImport();
+                }, 200);
+                
             } else {
                 alert('⚠️ No se encontraron guías válidas en el archivo');
             }
