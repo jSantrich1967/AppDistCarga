@@ -9,29 +9,53 @@ const cookieParser = require('cookie-parser');
 // Dependencias con manejo de errores y fallbacks
 let xlsx;
 let multer;
+let upload;
 let hasExcelSupport = false;
 let hasUploadSupport = false;
 
 try {
+    console.log('🔄 Intentando cargar XLSX...');
     xlsx = require('xlsx');
     hasExcelSupport = true;
     console.log('✅ Librería XLSX cargada correctamente');
-    console.log('📊 XLSX versión:', xlsx.version);
+    console.log('📊 XLSX versión:', xlsx.version || 'N/A');
 } catch (error) {
     console.error('❌ Error cargando XLSX:', error);
-    console.warn('⚠️ XLSX no disponible, usando procesamiento básico:', error.message);
+    console.warn('⚠️ XLSX no disponible:', error.message);
     hasExcelSupport = false;
+    xlsx = null;
 }
 
 try {
+    console.log('🔄 Intentando cargar Multer...');
     multer = require('multer');
     hasUploadSupport = true;
     console.log('✅ Librería Multer cargada correctamente');
     console.log('📤 Multer versión:', multer.version || 'N/A');
+    
+    // Configurar Multer solo si se cargó correctamente
+    upload = multer({
+        storage: multer.memoryStorage(),
+        limits: {
+            fileSize: 10 * 1024 * 1024 // 10MB límite
+        },
+        fileFilter: (req, file, cb) => {
+            if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+                file.mimetype === 'application/vnd.ms-excel' ||
+                file.originalname.match(/\.(xlsx|xls)$/)) {
+                cb(null, true);
+            } else {
+                cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls)'), false);
+            }
+        }
+    });
+    console.log('✅ Multer configurado correctamente');
 } catch (error) {
     console.error('❌ Error cargando Multer:', error);
-    console.warn('⚠️ Multer no disponible, usando procesamiento básico:', error.message);
+    console.warn('⚠️ Multer no disponible:', error.message);
     hasUploadSupport = false;
+    multer = null;
+    upload = null;
 }
 
 // Cargar variables de entorno
@@ -204,32 +228,7 @@ app.get('/api/plantilla-excel', (req, res) => {
     }
 });
 
-// Configuración de multer para uploads de archivos (solo si está disponible)
-let upload;
-
-if (hasUploadSupport && multer) {
-    upload = multer({
-        storage: multer.memoryStorage(),
-        limits: {
-            fileSize: 10 * 1024 * 1024 // 10MB máximo
-        },
-        fileFilter: (req, file, cb) => {
-            // Permitir solo archivos Excel
-            const allowedTypes = [
-                'application/vnd.ms-excel',
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            ];
-            if (allowedTypes.includes(file.mimetype) || file.originalname.match(/\.(xlsx|xls)$/)) {
-                cb(null, true);
-            } else {
-                cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls)'), false);
-            }
-        }
-    });
-    console.log('✅ Configuración de multer establecida');
-} else {
-    console.warn('⚠️ Multer no disponible - funcionalidad de upload deshabilitada');
-}
+// Configuración de multer ya realizada en la sección de dependencias arriba
 
 // Base de datos en memoria usando archivo JSON
 let db = {};
