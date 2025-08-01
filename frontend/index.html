@@ -743,18 +743,22 @@
                             </div>
                             <div class="import-content">
                                 <div class="import-instructions">
-                                    <p><strong>📋 Instrucciones:</strong></p>
+                                    <p><strong>📋 Opciones de importación:</strong></p>
                                     <ul>
-                                        <li>Selecciona un archivo Excel (.xlsx) con tus guías</li>
+                                        <li><strong>Excel:</strong> Selecciona un archivo .xlsx con tus guías</li>
+                                        <li><strong>CSV:</strong> Alternativa si Excel no funciona</li>
                                         <li>Las guías se agregarán a esta acta automáticamente</li>
-                                        <li><a href="/api/plantilla-excel" target="_blank">📥 Descargar plantilla</a></li>
                                     </ul>
+                                    <div class="download-links">
+                                        <a href="/api/plantilla-excel" target="_blank" class="btn-link">📥 Plantilla Excel</a>
+                                        <button type="button" class="btn-link" onclick="App.downloadCSVTemplate()">📄 Plantilla CSV</button>
+                                    </div>
                                 </div>
                                 <div class="file-upload-mini">
-                                    <input type="file" id="guidesFileInput" accept=".xlsx,.xls" style="display: none;">
+                                    <input type="file" id="guidesFileInput" accept=".xlsx,.xls,.csv" style="display: none;">
                                     <button type="button" class="btn btn-outline" onclick="document.getElementById('guidesFileInput').click()">
                                         <i class="fas fa-folder-open"></i>
-                                        Seleccionar Archivo
+                                        Seleccionar Archivo Excel/CSV
                                     </button>
                                     <div id="guidesFileInfo" class="file-info-mini" style="display: none;">
                                         <span id="guidesFileName"></span>

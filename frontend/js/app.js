@@ -3297,14 +3297,14 @@ ESTADO DEL SISTEMA
         const processBtn = document.getElementById('processGuidesBtn');
         
         if (file) {
-            // Validar tipo de archivo
-            const validTypes = [
-                'application/vnd.ms-excel',
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            ];
+            // Validar tipo de archivo (Excel o CSV)
+            const isExcel = file.name.match(/\.(xlsx|xls)$/i) || 
+                           file.type.includes('excel') || 
+                           file.type.includes('spreadsheet');
+            const isCSV = file.name.match(/\.csv$/i) || file.type.includes('csv');
             
-            if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/)) {
-                alert('❌ Por favor selecciona un archivo Excel válido (.xlsx o .xls)');
+            if (!isExcel && !isCSV) {
+                alert('❌ Por favor selecciona un archivo Excel (.xlsx, .xls) o CSV (.csv)');
                 e.target.value = '';
                 return;
             }
@@ -3317,12 +3317,14 @@ ESTADO DEL SISTEMA
             }
             
             // Mostrar información del archivo
-            fileName.textContent = file.name;
+            const fileType = isExcel ? '📊 Excel' : '📄 CSV';
+            fileName.textContent = `${fileType} - ${file.name}`;
             fileSize.textContent = `${(file.size / 1024).toFixed(1)} KB`;
             fileInfo.style.display = 'flex';
             processBtn.disabled = false;
             
             App.selectedGuidesFile = file;
+            App.selectedGuidesFileType = isExcel ? 'excel' : 'csv';
         } else {
             App.clearGuidesFile();
         }
@@ -3333,10 +3335,74 @@ ESTADO DEL SISTEMA
         document.getElementById('guidesFileInfo').style.display = 'none';
         document.getElementById('processGuidesBtn').disabled = true;
         App.selectedGuidesFile = null;
+        App.selectedGuidesFileType = null;
+    },
+
+    // Procesar archivo CSV
+    processCSVFile: async function(file) {
+        const text = await file.text();
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+            throw new Error('El archivo CSV debe tener al menos una fila de encabezados y una fila de datos');
+        }
+        
+        // Parsear CSV simple (maneja comillas y comas)
+        const rawData = lines.map(line => {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            result.push(current.trim());
+            return result.map(cell => cell.replace(/^"|"$/g, '')); // Remover comillas
+        });
+        
+        return rawData;
+    },
+
+    // Descargar plantilla CSV
+    downloadCSVTemplate: function() {
+        const headers = [
+            'No', 'WAREHOUSE', 'FILE', 'ORIGEN', 'VIA', 'CLIENTE', 'EMBARCADOR',
+            'CANT. TEORICA', 'CANT. DESPACHADA', 'PIES CUBICOS', 'PESO', 'DESTINO', 'DIRECCION'
+        ];
+        
+        const ejemplos = [
+            ['1', 'ALM-VLC-01', 'EXP-2024-001', 'Caracas', 'terrestre', 'Distribuidora Centro C.A.', 'Comercial El Progreso', '5', '5', '15.5', '30', 'Valencia', 'Av. Bolívar Norte, Valencia, Carabobo'],
+            ['2', 'ALM-MCB-02', 'EXP-2024-002', 'Maracaibo', 'aereo', 'Comercial Zulia S.A.', 'Auto Repuestos Zulia', '3', '3', '8.2', '20', 'Cabimas', 'Av. 5 de Julio, Maracaibo, Zulia'],
+            ['3', 'ALM-MCB-03', 'EXP-2024-003', 'Valencia', 'terrestre', 'Empresa ABC C.A.', 'Distribuidora Centro', '2', '2', '5.1', '15', 'Maracay', 'Calle 72, Valencia, Carabobo'],
+            ['4', 'ALM-BQM-01', 'EXP-2024-004', 'Caracas', 'aereo', 'Distribuidora Norte', 'Comercial Oriente', '4', '4', '12.3', '35', 'Barquisimeto', 'Av. Delicias, Barquisimeto, Lara']
+        ];
+        
+        const csvContent = [headers, ...ejemplos]
+            .map(row => row.map(field => `"${field}"`).join(','))
+            .join('\n');
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        const today = new Date().toISOString().split('T')[0];
+        link.download = `Plantilla_Guias_${today}.csv`;
+        link.click();
+        
+        alert(`📄 ¡Plantilla CSV descargada!\n\n📋 Instrucciones:\n• Abre el archivo CSV en Excel o Google Sheets\n• Llena una fila por cada guía\n• Solo CLIENTE y DIRECCION son obligatorios\n• Guarda y sube el archivo`);
     },
 
     processGuidesFile: async function() {
-        console.log('🔄 processGuidesFile iniciado');
+        console.log('🔄 processGuidesFile iniciado (procesamiento frontend)');
         console.log('📁 Archivo de guías seleccionado:', App.selectedGuidesFile);
         
         if (!App.selectedGuidesFile) {
@@ -3355,28 +3421,44 @@ ESTADO DEL SISTEMA
         if (!confirmed) return;
 
         try {
-            console.log('📤 Enviando archivo de guías...');
+            let rawData;
+            
+            if (App.selectedGuidesFileType === 'csv') {
+                console.log('📄 Procesando archivo CSV...');
+                rawData = await App.processCSVFile(App.selectedGuidesFile);
+            } else {
+                console.log('📊 Procesando archivo Excel...');
+                
+                // Verificar si XLSX está disponible en el frontend
+                if (typeof XLSX === 'undefined') {
+                    throw new Error('Librería XLSX no disponible. Usa CSV como alternativa.');
+                }
 
-            // Crear FormData para enviar el archivo
-            const formData = new FormData();
-            formData.append('excelFile', App.selectedGuidesFile);
+                // Leer archivo Excel usando la librería del frontend
+                const arrayBuffer = await App.selectedGuidesFile.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                
+                if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+                    throw new Error('El archivo Excel no contiene hojas válidas');
+                }
 
-            // Procesar archivo usando el endpoint de plantilla
-            const response = await fetch('/api/guias/process-excel', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: formData
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.error || `Error HTTP: ${response.status}`);
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                
+                // Convertir a JSON
+                rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            }
+            
+            if (!rawData || rawData.length < 2) {
+                throw new Error('El archivo debe tener al menos una fila de encabezados y una fila de datos');
             }
 
-            console.log('✅ Guías procesadas:', result);
+            console.log(`📊 Datos extraídos: ${rawData.length} filas`);
+
+            // Procesar datos en el frontend
+            const result = App.processGuidesDataFrontend(rawData);
+            
+            console.log('✅ Procesamiento completado:', result);
 
             // Agregar las guías al formulario actual
             if (result.guides && result.guides.length > 0) {
@@ -3393,8 +3475,119 @@ ESTADO DEL SISTEMA
 
         } catch (error) {
             console.error('Error procesando archivo de guías:', error);
-            alert('❌ Error al procesar archivo de guías: ' + error.message);
+            alert('❌ Error al procesar archivo de guías: ' + error.message + '\n\n💡 Puedes usar la plantilla CSV como alternativa.');
         }
+    },
+
+    // Procesar datos de guías en el frontend (sin dependencias del servidor)
+    processGuidesDataFrontend: function(rawData) {
+        const headers = rawData[0];
+        const dataRows = rawData.slice(1);
+        
+        let successCount = 0;
+        let errors = [];
+        let extractedGuides = [];
+
+        // Mapeo de columnas simplificado
+        const columnMapping = App.getGuidesColumnMappingFrontend(headers);
+        console.log('📋 Mapeo de columnas:', columnMapping);
+
+        for (let i = 0; i < dataRows.length; i++) {
+            const rowIndex = i + 2;
+            const row = dataRows[i];
+
+            try {
+                // Saltar filas vacías
+                if (!row || row.every(cell => !cell && cell !== 0)) {
+                    continue;
+                }
+
+                // Extraer datos de la guía
+                const guiaData = App.extractGuiaDataFromRowFrontend(row, columnMapping, rowIndex);
+                
+                // Validar que al menos tenga cliente y dirección
+                if (!guiaData.cliente || !guiaData.direccion) {
+                    errors.push({
+                        row: rowIndex,
+                        error: 'CLIENTE y DIRECCION son campos obligatorios'
+                    });
+                    continue;
+                }
+
+                extractedGuides.push(guiaData);
+                successCount++;
+
+            } catch (error) {
+                errors.push({
+                    row: rowIndex,
+                    error: error.message || 'Error procesando fila'
+                });
+            }
+        }
+
+        return {
+            success: successCount,
+            errors: errors,
+            guides: extractedGuides
+        };
+    },
+
+    // Mapeo de columnas en el frontend
+    getGuidesColumnMappingFrontend: function(headers) {
+        const mapping = {};
+        
+        const columnPatterns = {
+            no: /^no\.?$|numero|number/i,
+            warehouse: /warehouse|almacen|bodega/i,
+            file: /file|expediente|archivo/i,
+            origen: /origen|origin|source/i,
+            via: /via|route|tipo|transporte/i,
+            cliente: /cliente|client|customer/i,
+            embarcador: /embarcador|shipper|sender/i,
+            cantTeorica: /cant\.?\s*teorica|theoretical\s*qty|cantidad\s*teorica/i,
+            cantDespachada: /cant\.?\s*despachada|dispatched\s*qty|cantidad\s*despachada/i,
+            piesCubicos: /pies\s*cubicos|cubic\s*feet|ft3|pies³/i,
+            peso: /peso|weight|kg|kgs|kilos/i,
+            destino: /destino|destination|dest/i,
+            direccion: /direccion|address|addr/i
+        };
+
+        headers.forEach((header, index) => {
+            if (!header) return;
+            
+            const cleanHeader = header.toString().trim();
+            
+            Object.keys(columnPatterns).forEach(field => {
+                if (columnPatterns[field].test(cleanHeader)) {
+                    mapping[field] = index;
+                }
+            });
+        });
+
+        return mapping;
+    },
+
+    // Extraer datos de una fila en el frontend
+    extractGuiaDataFromRowFrontend: function(row, mapping, rowIndex) {
+        const guia = {
+            no: row[mapping.no] || rowIndex - 1,
+            warehouse: row[mapping.warehouse] || '',
+            file: row[mapping.file] || '',
+            origen: row[mapping.origen] || '',
+            via: row[mapping.via] || 'terrestre',
+            cliente: row[mapping.cliente] || '',
+            embarcador: row[mapping.embarcador] || '',
+            cantTeorica: parseInt(row[mapping.cantTeorica]) || 0,
+            cantDespachada: parseInt(row[mapping.cantDespachada]) || 0,
+            piesCubicos: parseFloat(row[mapping.piesCubicos]) || 0,
+            peso: parseFloat(row[mapping.peso]) || 0,
+            destino: row[mapping.destino] || '',
+            direccion: row[mapping.direccion] || '',
+            status: 'En Almacén',
+            createdAt: new Date()
+        };
+
+        return guia;
     },
 
     // Función para verificar elementos Excel
