@@ -89,24 +89,25 @@ app.get('/api/plantilla-excel', (req, res) => {
         const headers = [
             'Fecha', 'Ciudad', 'Agente', 'Modelo Camion', 'Año Camion', 'Placa', 
             'Chofer', 'Telefono Chofer', 'Ayudante', 'Telefono Ayudante',
-            'No Guia', 'Cliente', 'Direccion', 'Telefono', 'Bultos', 'Pies', 'Kgs', 'Via', 'Subtotal'
+            'No', 'WAREHOUSE', 'FILE', 'ORIGEN', 'VIA', 'CLIENTE', 'EMBARCADOR', 
+            'CANT. TEORICA', 'CANT. DESPACHADA', 'PIES CUBICOS', 'PESO', 'DESTINO', 'DIRECCION'
         ];
 
         const ejemplos = [
             [
                 '2024-12-25', 'Valencia', 'Juan Pérez García', 'Freightliner Cascadia', '2020', 'AB123CD',
                 'Carlos López', '0414-555-1234', 'María González', '0424-555-5678',
-                'VLC001-2024', 'Distribuidora Centro C.A.', 'Av. Bolívar Norte, Valencia, Carabobo', '0241-555-9999', '5', '15.5', '30', 'terrestre', '125.75'
+                '1', 'ALM-VLC-01', 'EXP-2024-001', 'Caracas', 'terrestre', 'Distribuidora Centro C.A.', 'Comercial El Progreso', '5', '5', '15.5', '30', 'Valencia', 'Av. Bolívar Norte, Valencia, Carabobo'
             ],
             [
                 '2024-12-26', 'Maracaibo', 'Ana Rodríguez', 'Volvo VNL', '2021', 'MC789EF',
                 'Roberto Silva', '0414-555-2468', 'Carmen Ruiz', '0426-555-1357',
-                'MCB002-2024; MCB003-2024; MCB004-2024', 'Comercial Zulia S.A.; Empresa ABC C.A.; Distribuidora Norte', 'Av. 5 de Julio; Calle 72; Av. Delicias', '0261-555-8888; 0261-555-7777; 0261-555-6666', '3; 2; 4', '8.2; 5.1; 12.3', '20; 15; 35', 'aereo; terrestre; aereo', '85.50; 65.25; 145.75'
+                '1; 2; 3', 'ALM-MCB-02; ALM-MCB-02; ALM-MCB-03', 'EXP-2024-002; EXP-2024-003; EXP-2024-004', 'Maracaibo; Valencia; Caracas', 'aereo; terrestre; aereo', 'Comercial Zulia S.A.; Empresa ABC C.A.; Distribuidora Norte', 'Auto Repuestos Zulia; Distribuidora Centro; Comercial Oriente', '3; 2; 4', '3; 2; 4', '8.2; 5.1; 12.3', '20; 15; 35', 'Cabimas; Maracay; Barquisimeto', 'Av. 5 de Julio; Calle 72; Av. Delicias'
             ],
             [
                 '2024-12-27', 'Barquisimeto', 'Luis Mendoza', 'Mack Anthem', '2019', 'BQ456GH',
                 'Elena Torres', '0414-555-3579', 'Diego Morales', '0424-555-2468',
-                'BQM005-2024', 'Logística Lara C.A.', 'Carrera 19, Barquisimeto, Lara', '0251-555-7777', '8', '22.1', '45', 'terrestre', '195.25'
+                '1', 'ALM-BQM-01', 'EXP-2024-005', 'Valencia', 'terrestre', 'Logística Lara C.A.', 'Distribuidora Centro Occidental', '8', '8', '22.1', '45', 'Acarigua', 'Carrera 19, Barquisimeto, Lara'
             ]
         ];
 
@@ -124,29 +125,43 @@ app.get('/api/plantilla-excel', (req, res) => {
             ['• Chofer, Telefono Chofer (0414-XXX-XXXX)'],
             ['• Ayudante, Telefono Ayudante (0424-XXX-XXXX)'],
             [''],
-            ['🔵 CAMPOS OPCIONALES (Guías):'],
-            ['• No Guia, Cliente, Direccion, Telefono'],
-            ['• Bultos, Pies, Kgs, Via (terrestre/aereo), Subtotal'],
+            ['🔵 CAMPOS NUEVOS (Guías Profesionales):'],
+            ['• No - Número secuencial (automático)'],
+            ['• WAREHOUSE - Código del almacén (ALM-XXX-XX)'],
+            ['• FILE - Número de expediente (EXP-YYYY-XXX)'],
+            ['• ORIGEN - Ciudad de origen'],
+            ['• VIA - Método de transporte (terrestre/aereo/maritimo)'],
+            ['• CLIENTE - Empresa/persona destinataria'],
+            ['• EMBARCADOR - Empresa que envía la mercancía'],
+            ['• CANT. TEORICA - Cantidad esperada'],
+            ['• CANT. DESPACHADA - Cantidad real enviada'],
+            ['• PIES CUBICOS - Volumen en pies cúbicos'],
+            ['• PESO - Peso en kilogramos'],
+            ['• DESTINO - Ciudad de destino'],
+            ['• DIRECCION - Dirección completa de entrega'],
             [''],
             ['📋 INSTRUCCIONES BÁSICAS:'],
             ['1. Ve a la hoja "Actas" (pestaña abajo)'],
             ['2. Llena tus datos siguiendo los ejemplos'],
             ['3. Solo Fecha, Ciudad y Agente son obligatorios'],
             ['4. Cada fila se convertirá en una acta independiente'],
-            ['5. Guarda y sube el archivo a la aplicación'],
+            ['5. Los campos de guías son opcionales pero recomendados'],
+            ['6. Guarda y sube el archivo a la aplicación'],
             [''],
             ['🔄 MÚLTIPLES GUÍAS EN UNA ACTA:'],
             ['Para incluir varias guías en una sola acta:'],
             ['• Separa los valores con punto y coma (;)'],
-            ['• Ejemplo: "VLC001; VLC002; VLC003"'],
+            ['• Ejemplo: "1; 2; 3" para números secuenciales'],
+            ['• Ejemplo: "ALM-MCB-02; ALM-MCB-02; ALM-MCB-03"'],
             ['• Si algunos datos son iguales, repite el valor'],
             ['• Ver ejemplo en fila 2 (Maracaibo - 3 guías)'],
             [''],
             ['💡 EJEMPLOS DE MÚLTIPLES GUÍAS:'],
-            ['No Guia: "MCB002-2024; MCB003-2024; MCB004-2024"'],
-            ['Cliente: "Empresa A; Empresa B; Empresa C"'],
-            ['Bultos: "3; 2; 4"'],
-            ['Subtotal: "85.50; 65.25; 145.75"']
+            ['No: "1; 2; 3"'],
+            ['WAREHOUSE: "ALM-MCB-02; ALM-MCB-02; ALM-MCB-03"'],
+            ['CLIENTE: "Empresa A; Empresa B; Empresa C"'],
+            ['CANT. TEORICA: "3; 2; 4"'],
+            ['PIES CUBICOS: "8.2; 5.1; 12.3"']
         ];
 
         // Crear workbook usando XLSX
@@ -1506,7 +1521,7 @@ function getColumnMapping(headers) {
     const columnPatterns = {
         fecha: /fecha|date/i,
         ciudad: /ciudad|city/i,
-        agente: /agente|agent|cliente|client/i,
+        agente: /agente|agent/i,
         modeloCamion: /modelo\s*camion|truck\s*model|modelo/i,
         anioCamion: /año\s*camion|year\s*truck|año|year/i,
         placaCamion: /placa|plate|license/i,
@@ -1514,15 +1529,20 @@ function getColumnMapping(headers) {
         telefonoChofer: /telefono\s*chofer|phone\s*driver|tel\s*chofer/i,
         nombreAyudante: /ayudante|helper|assistant/i,
         telefonoAyudante: /telefono\s*ayudante|phone\s*helper|tel\s*ayudante/i,
-        noGuia: /numero\s*guia|guia|guide\s*number|no\s*guia/i,
-        nombreCliente: /cliente|client|customer/i,
-        direccion: /direccion|address/i,
-        telefono: /telefono|phone|tel/i,
-        bultos: /bultos|packages|paquetes/i,
-        pies: /pies|feet|ft/i,
-        kgs: /kilos|kgs|kg|weight|peso/i,
+        // Nuevos campos de guías
+        no: /^no\.?$|numero|number/i,
+        warehouse: /warehouse|almacen|bodega/i,
+        file: /file|expediente|archivo/i,
+        origen: /origen|origin|source/i,
         via: /via|route|tipo|transporte/i,
-        subtotal: /subtotal|total|amount|monto/i
+        cliente: /cliente|client|customer/i,
+        embarcador: /embarcador|shipper|sender/i,
+        cantTeorica: /cant\.?\s*teorica|theoretical\s*qty|cantidad\s*teorica/i,
+        cantDespachada: /cant\.?\s*despachada|dispatched\s*qty|cantidad\s*despachada/i,
+        piesCubicos: /pies\s*cubicos|cubic\s*feet|ft3|pies³/i,
+        peso: /peso|weight|kg|kgs|kilos/i,
+        destino: /destino|destination|dest/i,
+        direccion: /direccion|address|addr/i
     };
 
     headers.forEach((header, index) => {

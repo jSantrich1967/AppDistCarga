@@ -1393,22 +1393,29 @@ const App = {
     addGuideRow: function(guide = {}) {
         const tbody = document.querySelector('#guidesTable tbody');
         const row = tbody.insertRow();
+        const rowNumber = tbody.rows.length;
+        
         row.innerHTML = `
-            <td><input type="text" name="noGuia" required value="${guide.noGuia || ''}"></td>
-            <td><input type="text" name="nombreCliente" required value="${guide.nombreCliente || ''}"></td>
-            <td><input type="text" name="direccion" required value="${guide.direccion || ''}"></td>
-            <td><input type="tel" name="telefono" required value="${guide.telefono || ''}"></td>
-            <td><input type="number" name="bultos" required min="1" value="${guide.bultos || '1'}"></td>
-            <td><input type="number" name="pies" required min="0.01" step="0.01" onchange="App.updateRowSubtotal(this)" value="${guide.pies || ''}"></td>
-            <td><input type="number" name="kgs" required min="0.01" step="0.01" value="${guide.kgs || ''}"></td>
+            <td><input type="text" name="no" readonly value="${rowNumber}" style="background: #f5f5f5; width: 50px;"></td>
+            <td><input type="text" name="warehouse" placeholder="Almacén" value="${guide.warehouse || ''}"></td>
+            <td><input type="text" name="file" placeholder="N° Expediente" value="${guide.file || ''}"></td>
+            <td><input type="text" name="origen" placeholder="Ciudad de origen" value="${guide.origen || ''}"></td>
             <td>
                 <select name="via" required>
                     <option value="">Seleccionar</option>
+                    <option value="terrestre" ${guide.via === 'terrestre' ? 'selected' : ''}>Terrestre</option>
                     <option value="aereo" ${guide.via === 'aereo' ? 'selected' : ''}>Aéreo</option>
                     <option value="maritimo" ${guide.via === 'maritimo' ? 'selected' : ''}>Marítimo</option>
                 </select>
             </td>
-            <td class="subtotal">${(guide.subtotal || 0).toFixed(2)}</td>
+            <td><input type="text" name="cliente" required placeholder="Nombre del cliente" value="${guide.cliente || ''}"></td>
+            <td><input type="text" name="embarcador" placeholder="Empresa embarcadora" value="${guide.embarcador || ''}"></td>
+            <td><input type="number" name="cantTeorica" min="0" step="1" placeholder="Cant. teórica" value="${guide.cantTeorica || ''}"></td>
+            <td><input type="number" name="cantDespachada" min="0" step="1" placeholder="Cant. despachada" value="${guide.cantDespachada || ''}"></td>
+            <td><input type="number" name="piesCubicos" min="0.01" step="0.01" onchange="App.updateRowSubtotal(this)" placeholder="Pies³" value="${guide.piesCubicos || ''}"></td>
+            <td><input type="number" name="peso" min="0.01" step="0.01" placeholder="Kg" value="${guide.peso || ''}"></td>
+            <td><input type="text" name="destino" placeholder="Ciudad destino" value="${guide.destino ||  ''}"></td>
+            <td><input type="text" name="direccion" required placeholder="Dirección completa" value="${guide.direccion || ''}"></td>
             <td class="actions">
                 <button type="button" class="btn btn-danger" onclick="App.removeGuideRow(this)"><i class="fas fa-trash"></i></button>
             </td>
@@ -1418,30 +1425,54 @@ const App = {
 
     removeGuideRow: function(button) {
         button.closest('tr').remove();
+        // Renumerar todas las filas
+        App.renumberGuideRows();
         App.updateTotal();
+    },
+    
+    renumberGuideRows: function() {
+        const tbody = document.querySelector('#guidesTable tbody');
+        const rows = tbody.querySelectorAll('tr');
+        rows.forEach((row, index) => {
+            const numberInput = row.querySelector('input[name="no"]');
+            if (numberInput) {
+                numberInput.value = index + 1;
+            }
+        });
     },
 
     updateRowSubtotal: function(input) {
         const row = input.closest('tr');
-        const pies = parseFloat(input.value) || 0;
+        const piesCubicos = parseFloat(input.value) || 0;
         const ciudad = document.querySelector('#actaForm [name="ciudad"]').value;
-        const subtotal = App.calculateSubtotal(pies, ciudad);
+        const subtotal = App.calculateSubtotal(piesCubicos, ciudad);
         
-        row.querySelector('.subtotal').textContent = subtotal.toFixed(2);
+        // Actualizar visualmente el cálculo en el título del campo o consola para debug
+        console.log(`Calculando: ${piesCubicos} pies³ x tarifa ${ciudad} = ${subtotal.toFixed(2)}`);
         App.updateTotal();
     },
 
-    calculateSubtotal: function(pies, ciudad) {
+    calculateSubtotal: function(piesCubicos, ciudad) {
         const rate = cityRates[ciudad] || 0;
-        return (parseFloat(pies) || 0) * rate;
+        return (parseFloat(piesCubicos) || 0) * rate;
     },
 
     updateTotal: function() {
-        const subtotals = document.querySelectorAll('#guidesTable .subtotal');
+        // Calcular total basado en pies cúbicos de todas las guías
+        const guidesTable = document.querySelector('#guidesTable tbody');
+        const ciudad = document.querySelector('#actaForm [name="ciudad"]').value;
+        const rate = cityRates[ciudad] || 0;
         let total = 0;
-        subtotals.forEach(cell => {
-            total += parseFloat(cell.textContent) || 0;
+        
+        const rows = guidesTable.querySelectorAll('tr');
+        rows.forEach(row => {
+            const piesCubicosInput = row.querySelector('input[name="piesCubicos"]');
+            if (piesCubicosInput) {
+                const piesCubicos = parseFloat(piesCubicosInput.value) || 0;
+                total += piesCubicos * rate;
+            }
         });
+        
         document.getElementById('totalGeneral').textContent = total.toFixed(2);
     },
 
