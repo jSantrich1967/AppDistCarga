@@ -86,82 +86,68 @@ app.get('/api/plantilla-excel', (req, res) => {
             });
         }
         // Datos para la plantilla
+        // Plantilla SOLO para guías (sin campos de acta)
         const headers = [
-            'Fecha', 'Ciudad', 'Agente', 'Modelo Camion', 'Año Camion', 'Placa', 
-            'Chofer', 'Telefono Chofer', 'Ayudante', 'Telefono Ayudante',
             'No', 'WAREHOUSE', 'FILE', 'ORIGEN', 'VIA', 'CLIENTE', 'EMBARCADOR', 
             'CANT. TEORICA', 'CANT. DESPACHADA', 'PIES CUBICOS', 'PESO', 'DESTINO', 'DIRECCION'
         ];
 
+        // Ejemplos SOLO de guías (sin datos de acta)
         const ejemplos = [
             [
-                '2024-12-25', 'Valencia', 'Juan Pérez García', 'Freightliner Cascadia', '2020', 'AB123CD',
-                'Carlos López', '0414-555-1234', 'María González', '0424-555-5678',
                 '1', 'ALM-VLC-01', 'EXP-2024-001', 'Caracas', 'terrestre', 'Distribuidora Centro C.A.', 'Comercial El Progreso', '5', '5', '15.5', '30', 'Valencia', 'Av. Bolívar Norte, Valencia, Carabobo'
             ],
             [
-                '2024-12-26', 'Maracaibo', 'Ana Rodríguez', 'Volvo VNL', '2021', 'MC789EF',
-                'Roberto Silva', '0414-555-2468', 'Carmen Ruiz', '0426-555-1357',
-                '1; 2; 3', 'ALM-MCB-02; ALM-MCB-02; ALM-MCB-03', 'EXP-2024-002; EXP-2024-003; EXP-2024-004', 'Maracaibo; Valencia; Caracas', 'aereo; terrestre; aereo', 'Comercial Zulia S.A.; Empresa ABC C.A.; Distribuidora Norte', 'Auto Repuestos Zulia; Distribuidora Centro; Comercial Oriente', '3; 2; 4', '3; 2; 4', '8.2; 5.1; 12.3', '20; 15; 35', 'Cabimas; Maracay; Barquisimeto', 'Av. 5 de Julio; Calle 72; Av. Delicias'
+                '2', 'ALM-MCB-02', 'EXP-2024-002', 'Maracaibo', 'aereo', 'Comercial Zulia S.A.', 'Auto Repuestos Zulia', '3', '3', '8.2', '20', 'Cabimas', 'Av. 5 de Julio, Maracaibo, Zulia'
             ],
             [
-                '2024-12-27', 'Barquisimeto', 'Luis Mendoza', 'Mack Anthem', '2019', 'BQ456GH',
-                'Elena Torres', '0414-555-3579', 'Diego Morales', '0424-555-2468',
-                '1', 'ALM-BQM-01', 'EXP-2024-005', 'Valencia', 'terrestre', 'Logística Lara C.A.', 'Distribuidora Centro Occidental', '8', '8', '22.1', '45', 'Acarigua', 'Carrera 19, Barquisimeto, Lara'
+                '3', 'ALM-MCB-03', 'EXP-2024-003', 'Valencia', 'terrestre', 'Empresa ABC C.A.', 'Distribuidora Centro', '2', '2', '5.1', '15', 'Maracay', 'Calle 72, Valencia, Carabobo'
+            ],
+            [
+                '4', 'ALM-BQM-01', 'EXP-2024-004', 'Caracas', 'aereo', 'Distribuidora Norte', 'Comercial Oriente', '4', '4', '12.3', '35', 'Barquisimeto', 'Av. Delicias, Barquisimeto, Lara'
+            ],
+            [
+                '5', 'ALM-CCS-01', 'EXP-2024-005', 'Valencia', 'terrestre', 'Logística Lara C.A.', 'Distribuidora Centro Occidental', '8', '8', '22.1', '45', 'Acarigua', 'Carrera 19, Barquisimeto, Lara'
             ]
         ];
 
         // Hoja de instrucciones
         const instrucciones = [
-            ['📊 PLANTILLA PARA IMPORTACIÓN DE ACTAS DE DESPACHO'],
+            ['📦 PLANTILLA PARA IMPORTACIÓN DE GUÍAS'],
             [''],
-            ['🔴 CAMPOS REQUERIDOS (Obligatorios):'],
-            ['• Fecha - Fecha del acta (YYYY-MM-DD)'],
-            ['• Ciudad - Ciudad venezolana'],
-            ['• Agente - Nombre del agente/cliente'],
-            [''],
-            ['🔵 CAMPOS OPCIONALES (Vehículo y Personal):'],
-            ['• Modelo Camion, Año Camion, Placa (formato: AB123CD)'],
-            ['• Chofer, Telefono Chofer (0414-XXX-XXXX)'],
-            ['• Ayudante, Telefono Ayudante (0424-XXX-XXXX)'],
-            [''],
-            ['🔵 CAMPOS NUEVOS (Guías Profesionales):'],
-            ['• No - Número secuencial (automático)'],
+            ['🔵 DESCRIPCIÓN DE CAMPOS:'],
+            ['• No - Número secuencial de la guía (1, 2, 3...)'],
             ['• WAREHOUSE - Código del almacén (ALM-XXX-XX)'],
             ['• FILE - Número de expediente (EXP-YYYY-XXX)'],
-            ['• ORIGEN - Ciudad de origen'],
+            ['• ORIGEN - Ciudad de origen de la carga'],
             ['• VIA - Método de transporte (terrestre/aereo/maritimo)'],
-            ['• CLIENTE - Empresa/persona destinataria'],
+            ['• CLIENTE - Empresa/persona destinataria (OBLIGATORIO)'],
             ['• EMBARCADOR - Empresa que envía la mercancía'],
             ['• CANT. TEORICA - Cantidad esperada'],
             ['• CANT. DESPACHADA - Cantidad real enviada'],
-            ['• PIES CUBICOS - Volumen en pies cúbicos'],
+            ['• PIES CUBICOS - Volumen en pies cúbicos (para facturación)'],
             ['• PESO - Peso en kilogramos'],
             ['• DESTINO - Ciudad de destino'],
-            ['• DIRECCION - Dirección completa de entrega'],
+            ['• DIRECCION - Dirección completa de entrega (OBLIGATORIO)'],
             [''],
-            ['📋 INSTRUCCIONES BÁSICAS:'],
-            ['1. Ve a la hoja "Actas" (pestaña abajo)'],
-            ['2. Llena tus datos siguiendo los ejemplos'],
-            ['3. Solo Fecha, Ciudad y Agente son obligatorios'],
-            ['4. Cada fila se convertirá en una acta independiente'],
-            ['5. Los campos de guías son opcionales pero recomendados'],
-            ['6. Guarda y sube el archivo a la aplicación'],
+            ['📋 INSTRUCCIONES:'],
+            ['1. Ve a la hoja "Guías" (pestaña abajo)'],
+            ['2. Llena una fila por cada guía'],
+            ['3. Solo CLIENTE y DIRECCION son obligatorios'],
+            ['4. Los demás campos son opcionales pero recomendados'],
+            ['5. El campo No se puede dejar automático (1, 2, 3...)'],
+            ['6. Guarda como .xlsx y sube a la aplicación'],
             [''],
-            ['🔄 MÚLTIPLES GUÍAS EN UNA ACTA:'],
-            ['Para incluir varias guías en una sola acta:'],
-            ['• Separa los valores con punto y coma (;)'],
-            ['• Ejemplo: "1; 2; 3" para números secuenciales'],
-            ['• Ejemplo: "ALM-MCB-02; ALM-MCB-02; ALM-MCB-03"'],
-            ['• Si algunos datos son iguales, repite el valor'],
-            ['• Ver ejemplo en fila 2 (Maracaibo - 3 guías)'],
+            ['🇻🇪 CÓDIGOS VENEZOLANOS SUGERIDOS:'],
+            ['• WAREHOUSE: ALM-CCS-01, ALM-MCB-02, ALM-VLC-03'],
+            ['• ORIGEN/DESTINO: Caracas, Maracaibo, Valencia, Barquisimeto'],
+            ['• VIA: terrestre (más común), aereo, maritimo'],
             [''],
-            ['💡 EJEMPLOS DE MÚLTIPLES GUÍAS:'],
-            ['No: "1; 2; 3"'],
-            ['WAREHOUSE: "ALM-MCB-02; ALM-MCB-02; ALM-MCB-03"'],
-            ['CLIENTE: "Empresa A; Empresa B; Empresa C"'],
-            ['CANT. TEORICA: "3; 2; 4"'],
-            ['PIES CUBICOS: "8.2; 5.1; 12.3"']
+            ['💡 EJEMPLOS DE LLENADO:'],
+            ['CLIENTE: "Distribuidora Centro C.A."'],
+            ['EMBARCADOR: "Comercial El Progreso"'],
+            ['DIRECCION: "Av. Bolívar Norte, Valencia, Carabobo"'],
+            ['PIES CUBICOS: "15.5" (usado para calcular el costo)']
         ];
 
         // Crear workbook usando XLSX
@@ -172,25 +158,35 @@ app.get('/api/plantilla-excel', (req, res) => {
         wsInstrucciones['!cols'] = [{wch: 60}]; // Ancho de columna
         xlsx.utils.book_append_sheet(wb, wsInstrucciones, "📋 Instrucciones");
 
-        // Hoja de actas con headers y ejemplos
-        const datosActas = [headers, ...ejemplos];
-        const wsActas = xlsx.utils.aoa_to_sheet(datosActas);
+        // Hoja de guías con headers y ejemplos
+        const datosGuias = [headers, ...ejemplos];
+        const wsGuias = xlsx.utils.aoa_to_sheet(datosGuias);
         
-        // Configurar ancho de columnas
+        // Configurar ancho de columnas para guías
         const colWidths = [
-            {wch: 12}, {wch: 15}, {wch: 20}, {wch: 18}, {wch: 12}, {wch: 12},
-            {wch: 18}, {wch: 15}, {wch: 18}, {wch: 15},
-            {wch: 15}, {wch: 20}, {wch: 30}, {wch: 15}, {wch: 8}, {wch: 8}, {wch: 8}, {wch: 10}, {wch: 10}
+            {wch: 5},   // No
+            {wch: 12},  // WAREHOUSE
+            {wch: 15},  // FILE
+            {wch: 12},  // ORIGEN
+            {wch: 10},  // VIA
+            {wch: 25},  // CLIENTE
+            {wch: 20},  // EMBARCADOR
+            {wch: 12},  // CANT. TEORICA
+            {wch: 12},  // CANT. DESPACHADA
+            {wch: 12},  // PIES CUBICOS
+            {wch: 8},   // PESO
+            {wch: 12},  // DESTINO
+            {wch: 35}   // DIRECCION
         ];
-        wsActas['!cols'] = colWidths;
-        xlsx.utils.book_append_sheet(wb, wsActas, "📊 Actas");
+        wsGuias['!cols'] = colWidths;
+        xlsx.utils.book_append_sheet(wb, wsGuias, "📦 Guías");
 
         // Generar buffer usando XLSX
         const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
         // Configurar headers de respuesta
         const today = new Date().toISOString().split('T')[0];
-        const filename = `Plantilla_Actas_${today}.xlsx`;
+        const filename = `Plantilla_Guias_${today}.xlsx`;
         
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
