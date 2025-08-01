@@ -102,6 +102,7 @@ const App = {
         // Excel Import event listeners
         safeAddListener('importExcelBtn', 'click', App.showExcelImport);
         safeAddListener('excelFileInput', 'change', App.handleFileSelection);
+        console.log('🔗 Agregando event listener para processExcelBtn');
         safeAddListener('processExcelBtn', 'click', App.processExcelFile);
         
         // Modales click fuera para cerrar
@@ -3206,11 +3207,16 @@ ESTADO DEL SISTEMA
     },
 
     processExcelFile: async function() {
+        console.log('🔄 processExcelFile iniciado');
+        console.log('📁 Archivo seleccionado:', App.selectedFile);
+        
         if (!App.selectedFile) {
+            console.error('❌ No hay archivo seleccionado');
             alert('❌ Por favor selecciona un archivo Excel primero');
             return;
         }
 
+        console.log('✅ Archivo válido, mostrando confirmación...');
         const confirmed = confirm(
             '¿Está seguro de que desea importar las guías desde este archivo Excel?\n\n' +
             '⚠️ Se crearán nuevas actas con las guías del archivo.\n' +
@@ -3257,6 +3263,43 @@ ESTADO DEL SISTEMA
             App.showImportProgress(false);
             console.error('Error procesando archivo de guías:', error);
             alert('❌ Error al procesar archivo de guías: ' + error.message);
+        }
+    },
+
+    // Función para verificar elementos Excel
+    checkExcelElements: function() {
+        console.log('🔍 Verificando elementos Excel...');
+        const elements = {
+            'importExcelBtn': document.getElementById('importExcelBtn'),
+            'excelFileInput': document.getElementById('excelFileInput'),
+            'processExcelBtn': document.getElementById('processExcelBtn'),
+            'selectedFileInfo': document.getElementById('selectedFileInfo'),
+            'fileName': document.getElementById('fileName'),
+            'fileSize': document.getElementById('fileSize')
+        };
+        
+        Object.keys(elements).forEach(id => {
+            console.log(`📋 ${id}:`, elements[id] ? '✅ Encontrado' : '❌ No encontrado');
+        });
+        
+        return elements;
+    },
+
+    // Función de testing para debugging
+    testProcessButton: function() {
+        console.log('🧪 Testing botón procesar archivo...');
+        const btn = document.getElementById('processExcelBtn');
+        console.log('📍 Botón encontrado:', btn);
+        console.log('🔒 Botón disabled:', btn ? btn.disabled : 'N/A');
+        console.log('👆 Event listeners:', btn ? getEventListeners(btn) : 'N/A');
+        console.log('📁 Archivo seleccionado:', App.selectedFile);
+        
+        // Intentar hacer click programáticamente
+        if (btn && !btn.disabled) {
+            console.log('🖱️ Simulando click...');
+            btn.click();
+        } else {
+            console.warn('⚠️ Botón no disponible o deshabilitado');
         }
     },
 
