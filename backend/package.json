@@ -2,9 +2,9 @@
   "name": "app-dist-carga-backend",
   "version": "1.0.0",
   "description": "Backend para la aplicación de gestión de actas de despacho.",
-  "main": "server-simple.js",
+  "main": "server-clean.js",
   "scripts": {
-    "start": "node server-simple.js"
+    "start": "node server-clean.js"
   },
   "dependencies": {
     "express": "^4.17.1",
