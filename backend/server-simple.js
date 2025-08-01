@@ -131,7 +131,7 @@ app.get('/api/plantilla-excel', (req, res) => {
             ['• DIRECCION - Dirección completa de entrega (OBLIGATORIO)'],
             [''],
             ['📋 INSTRUCCIONES:'],
-            ['1. Ve a la hoja "Guías" (pestaña abajo)'],
+                            ['1. Ve a la hoja "GUÍAS" (pestaña principal)'],
             ['2. Llena una fila por cada guía'],
             ['3. Solo CLIENTE y DIRECCION son obligatorios'],
             ['4. Los demás campos son opcionales pero recomendados'],
@@ -153,12 +153,7 @@ app.get('/api/plantilla-excel', (req, res) => {
         // Crear workbook usando XLSX
         const wb = xlsx.utils.book_new();
 
-        // Agregar hoja de instrucciones
-        const wsInstrucciones = xlsx.utils.aoa_to_sheet(instrucciones);
-        wsInstrucciones['!cols'] = [{wch: 60}]; // Ancho de columna
-        xlsx.utils.book_append_sheet(wb, wsInstrucciones, "📋 Instrucciones");
-
-        // Hoja de guías con headers y ejemplos
+        // PRIMERO: Hoja de guías (será la hoja activa al abrir)
         const datosGuias = [headers, ...ejemplos];
         const wsGuias = xlsx.utils.aoa_to_sheet(datosGuias);
         
@@ -179,7 +174,12 @@ app.get('/api/plantilla-excel', (req, res) => {
             {wch: 35}   // DIRECCION
         ];
         wsGuias['!cols'] = colWidths;
-        xlsx.utils.book_append_sheet(wb, wsGuias, "📦 Guías");
+        xlsx.utils.book_append_sheet(wb, wsGuias, "GUÍAS");
+
+        // SEGUNDO: Hoja de instrucciones (como referencia)
+        const wsInstrucciones = xlsx.utils.aoa_to_sheet(instrucciones);
+        wsInstrucciones['!cols'] = [{wch: 60}]; // Ancho de columna
+        xlsx.utils.book_append_sheet(wb, wsInstrucciones, "Instrucciones");
 
         // Generar buffer usando XLSX
         const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });

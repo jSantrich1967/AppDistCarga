@@ -3466,7 +3466,7 @@ ESTADO DEL SISTEMA
                 ['• DIRECCION - Dirección completa de entrega (OBLIGATORIO)'],
                 [''],
                 ['📋 INSTRUCCIONES:'],
-                ['1. Ve a la hoja "Guías" (pestaña abajo)'],
+                ['1. Ve a la hoja "GUÍAS" (pestaña principal)'],
                 ['2. Llena una fila por cada guía'],
                 ['3. Solo CLIENTE y DIRECCION son obligatorios'],
                 ['4. Los demás campos son opcionales pero recomendados'],
@@ -3488,12 +3488,7 @@ ESTADO DEL SISTEMA
             // Crear workbook
             const wb = XLSX.utils.book_new();
 
-            // Agregar hoja de instrucciones
-            const wsInstrucciones = XLSX.utils.aoa_to_sheet(instrucciones);
-            wsInstrucciones['!cols'] = [{wch: 60}]; // Ancho de columna
-            XLSX.utils.book_append_sheet(wb, wsInstrucciones, "📋 Instrucciones");
-
-            // Agregar hoja de guías
+            // PRIMERO: Agregar hoja de guías (será la hoja activa al abrir)
             const datosGuias = [headers, ...ejemplos];
             const wsGuias = XLSX.utils.aoa_to_sheet(datosGuias);
 
@@ -3514,8 +3509,12 @@ ESTADO DEL SISTEMA
                 {wch: 35}   // DIRECCION
             ];
             wsGuias['!cols'] = colWidths;
+            XLSX.utils.book_append_sheet(wb, wsGuias, "GUÍAS");
 
-            XLSX.utils.book_append_sheet(wb, wsGuias, "📦 Guías");
+            // SEGUNDO: Agregar hoja de instrucciones (como referencia)
+            const wsInstrucciones = XLSX.utils.aoa_to_sheet(instrucciones);
+            wsInstrucciones['!cols'] = [{wch: 60}]; // Ancho de columna
+            XLSX.utils.book_append_sheet(wb, wsInstrucciones, "Instrucciones");
 
             // Generar archivo y descargarlo
             const today = new Date().toISOString().split('T')[0];
