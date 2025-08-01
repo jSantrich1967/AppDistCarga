@@ -3477,18 +3477,20 @@ ESTADO DEL SISTEMA
         return rawData;
     },
 
-    // Descargar plantilla CSV
+    // Descargar plantilla CSV (UN CLIENTE POR ARCHIVO)
     downloadCSVTemplate: function() {
         const headers = [
             'No', 'WAREHOUSE', 'FILE', 'ORIGEN', 'VIA', 'CLIENTE', 'EMBARCADOR',
             'CANT. TEORICA', 'CANT. DESPACHADA', 'PIES CUBICOS', 'PESO', 'DESTINO', 'DIRECCION'
         ];
         
+        // TODAS las guías del mismo cliente (ejemplo: Distribuidora Centro C.A.)
+        const clienteComun = 'Distribuidora Centro C.A.';
         const ejemplos = [
-            ['1', 'ALM-VLC-01', 'EXP-2024-001', 'Caracas', 'terrestre', 'Distribuidora Centro C.A.', 'Comercial El Progreso', '5', '5', '15.5', '30', 'Valencia', 'Av. Bolívar Norte, Valencia, Carabobo'],
-            ['2', 'ALM-MCB-02', 'EXP-2024-002', 'Maracaibo', 'aereo', 'Comercial Zulia S.A.', 'Auto Repuestos Zulia', '3', '3', '8.2', '20', 'Cabimas', 'Av. 5 de Julio, Maracaibo, Zulia'],
-            ['3', 'ALM-MCB-03', 'EXP-2024-003', 'Valencia', 'terrestre', 'Empresa ABC C.A.', 'Distribuidora Centro', '2', '2', '5.1', '15', 'Maracay', 'Calle 72, Valencia, Carabobo'],
-            ['4', 'ALM-BQM-01', 'EXP-2024-004', 'Caracas', 'aereo', 'Distribuidora Norte', 'Comercial Oriente', '4', '4', '12.3', '35', 'Barquisimeto', 'Av. Delicias, Barquisimeto, Lara']
+            ['1', 'ALM-VLC-01', 'EXP-2024-001', 'Caracas', 'terrestre', clienteComun, 'Comercial El Progreso', '5', '5', '15.5', '30', 'Valencia', 'Av. Bolívar Norte, Valencia, Carabobo'],
+            ['2', 'ALM-VLC-02', 'EXP-2024-002', 'Caracas', 'terrestre', clienteComun, 'Comercial El Progreso', '3', '3', '8.2', '20', 'Valencia', 'Av. 5 de Julio, Valencia, Carabobo'],
+            ['3', 'ALM-VLC-03', 'EXP-2024-003', 'Caracas', 'terrestre', clienteComun, 'Comercial El Progreso', '2', '2', '5.1', '15', 'Valencia', 'Calle 72, Valencia, Carabobo'],
+            ['4', 'ALM-VLC-04', 'EXP-2024-004', 'Caracas', 'terrestre', clienteComun, 'Comercial El Progreso', '4', '4', '12.3', '35', 'Valencia', 'Av. Delicias, Valencia, Carabobo']
         ];
         
         const csvContent = [headers, ...ejemplos]
@@ -3502,7 +3504,7 @@ ESTADO DEL SISTEMA
         link.download = `Plantilla_Guias_${today}.csv`;
         link.click();
         
-        alert(`📄 ¡Plantilla CSV descargada!\n\n📋 Instrucciones:\n• Abre el archivo CSV en Excel o Google Sheets\n• Llena una fila por cada guía\n• Solo CLIENTE y DIRECCION son obligatorios\n• Guarda y sube el archivo`);
+        alert(`📄 ¡Plantilla CSV descargada!\n\n🎯 IMPORTANTE: Un archivo = Un cliente\n\n📋 Instrucciones:\n• Pon el MISMO cliente en todas las filas\n• Cada fila = una guía del mismo cliente\n• Solo DIRECCION es obligatoria por guía\n• CLIENTE se toma de la primera fila\n• Guarda y sube el archivo`);
     },
 
     processGuidesFile: async function() {
@@ -3593,7 +3595,8 @@ ESTADO DEL SISTEMA
                     const total = totalElement ? totalElement.textContent : '0.00';
                     console.log(`💰 Total calculado: $${total}`);
                     
-                    alert(`✅ ¡${result.guides.length} guías importadas correctamente!\n\n💰 Total: $${total}\n\nLas guías se han agregado a esta acta.`);
+                    const clienteInfo = result.clienteComun ? `\n👤 Cliente: ${result.clienteComun}` : '';
+                    alert(`✅ ¡${result.guides.length} guías importadas correctamente!${clienteInfo}\n\n💰 Total: $${total}\n\nLas guías se han agregado a esta acta.`);
                     App.hideGuidesImport();
                 }, 200);
                 
@@ -3607,7 +3610,7 @@ ESTADO DEL SISTEMA
         }
     },
 
-    // Procesar datos de guías en el frontend (sin dependencias del servidor)
+    // Procesar datos de guías en el frontend (UN CLIENTE POR ARCHIVO)
     processGuidesDataFrontend: function(rawData) {
         const headers = rawData[0];
         const dataRows = rawData.slice(1);
@@ -3615,10 +3618,33 @@ ESTADO DEL SISTEMA
         let successCount = 0;
         let errors = [];
         let extractedGuides = [];
+        let clienteComun = '';
 
         // Mapeo de columnas simplificado
         const columnMapping = App.getGuidesColumnMappingFrontend(headers);
         console.log('📋 Mapeo de columnas:', columnMapping);
+
+        // Extraer cliente de la primera fila (todas las guías del mismo cliente)
+        if (dataRows.length > 0) {
+            const firstRow = dataRows[0];
+            if (firstRow && columnMapping.cliente !== undefined) {
+                clienteComun = firstRow[columnMapping.cliente] || '';
+                console.log(`👤 Cliente común para todas las guías: "${clienteComun}"`);
+            }
+        }
+
+        // Validar que hay un cliente común
+        if (!clienteComun || !clienteComun.trim()) {
+            errors.push({
+                row: 2,
+                error: 'La primera fila debe tener el CLIENTE que aplicará a todas las guías del archivo'
+            });
+            return {
+                success: 0,
+                errors: errors,
+                guides: []
+            };
+        }
 
         for (let i = 0; i < dataRows.length; i++) {
             const rowIndex = i + 2;
@@ -3633,15 +3659,19 @@ ESTADO DEL SISTEMA
                 // Extraer datos de la guía
                 const guiaData = App.extractGuiaDataFromRowFrontend(row, columnMapping, rowIndex);
                 
-                // Validar que al menos tenga cliente y dirección
-                if (!guiaData.cliente || !guiaData.direccion) {
+                // APLICAR CLIENTE COMÚN A TODAS LAS GUÍAS
+                guiaData.cliente = clienteComun;
+                
+                // Validar que tenga al menos dirección (cliente ya está garantizado)
+                if (!guiaData.direccion || !guiaData.direccion.trim()) {
                     errors.push({
                         row: rowIndex,
-                        error: 'CLIENTE y DIRECCION son campos obligatorios'
+                        error: 'DIRECCION es obligatoria para cada guía'
                     });
                     continue;
                 }
 
+                console.log(`📦 Guía ${successCount + 1} para cliente "${clienteComun}":`, guiaData);
                 extractedGuides.push(guiaData);
                 successCount++;
 
@@ -3653,10 +3683,13 @@ ESTADO DEL SISTEMA
             }
         }
 
+        console.log(`✅ Archivo procesado: ${successCount} guías para cliente "${clienteComun}"`);
+
         return {
             success: successCount,
             errors: errors,
-            guides: extractedGuides
+            guides: extractedGuides,
+            clienteComun: clienteComun
         };
     },
 
@@ -3969,28 +4002,29 @@ ESTADO DEL SISTEMA
                 'CANT. TEORICA', 'CANT. DESPACHADA', 'PIES CUBICOS', 'PESO', 'DESTINO', 'DIRECCION'
             ];
 
-            // Ejemplos SOLO de guías (sin datos de acta)
+            // Ejemplos: TODAS las guías del MISMO cliente (UN ARCHIVO = UN CLIENTE)
+            const clienteComun = 'Distribuidora Centro C.A.';
             const ejemplos = [
                 [
-                    '1', 'ALM-VLC-01', 'EXP-2024-001', 'Caracas', 'terrestre', 'Distribuidora Centro C.A.', 'Comercial El Progreso', '5', '5', '15.5', '30', 'Valencia', 'Av. Bolívar Norte, Valencia, Carabobo'
+                    '1', 'ALM-VLC-01', 'EXP-2024-001', 'Caracas', 'terrestre', clienteComun, 'Comercial El Progreso', '5', '5', '15.5', '30', 'Valencia', 'Av. Bolívar Norte, Valencia, Carabobo'
                 ],
                 [
-                    '2', 'ALM-MCB-02', 'EXP-2024-002', 'Maracaibo', 'aereo', 'Comercial Zulia S.A.', 'Auto Repuestos Zulia', '3', '3', '8.2', '20', 'Cabimas', 'Av. 5 de Julio, Maracaibo, Zulia'
+                    '2', 'ALM-VLC-02', 'EXP-2024-002', 'Caracas', 'terrestre', clienteComun, 'Comercial El Progreso', '3', '3', '8.2', '20', 'Valencia', 'Av. 5 de Julio, Valencia, Carabobo'
                 ],
                 [
-                    '3', 'ALM-MCB-03', 'EXP-2024-003', 'Valencia', 'terrestre', 'Empresa ABC C.A.', 'Distribuidora Centro', '2', '2', '5.1', '15', 'Maracay', 'Calle 72, Valencia, Carabobo'
+                    '3', 'ALM-VLC-03', 'EXP-2024-003', 'Caracas', 'terrestre', clienteComun, 'Comercial El Progreso', '2', '2', '5.1', '15', 'Valencia', 'Calle 72, Valencia, Carabobo'
                 ],
                 [
-                    '4', 'ALM-BQM-01', 'EXP-2024-004', 'Caracas', 'aereo', 'Distribuidora Norte', 'Comercial Oriente', '4', '4', '12.3', '35', 'Barquisimeto', 'Av. Delicias, Barquisimeto, Lara'
+                    '4', 'ALM-VLC-04', 'EXP-2024-004', 'Caracas', 'terrestre', clienteComun, 'Comercial El Progreso', '4', '4', '12.3', '35', 'Valencia', 'Av. Delicias, Valencia, Carabobo'
                 ],
                 [
-                    '5', 'ALM-CCS-01', 'EXP-2024-005', 'Valencia', 'terrestre', 'Logística Lara C.A.', 'Distribuidora Centro Occidental', '8', '8', '22.1', '45', 'Acarigua', 'Carrera 19, Barquisimeto, Lara'
+                    '5', 'ALM-VLC-05', 'EXP-2024-005', 'Caracas', 'terrestre', clienteComun, 'Comercial El Progreso', '8', '8', '22.1', '45', 'Valencia', 'Carrera 19, Valencia, Carabobo'
                 ],
                 [
                     '', '', '', '', '', '', '', '', '', '', '', '', ''
                 ],
                 [
-                    '⬆️ AGREGA TUS GUÍAS AQUÍ ⬆️', '', '', '', '', '', '', '', '', '', '', '', ''
+                    '⬆️ AGREGA MÁS GUÍAS DEL MISMO CLIENTE ⬆️', '', '', '', '', '', '', '', '', '', '', '', ''
                 ]
             ];
 
@@ -4004,7 +4038,7 @@ ESTADO DEL SISTEMA
                 ['• FILE - Número de expediente (EXP-YYYY-XXX)'],
                 ['• ORIGEN - Ciudad de origen de la carga'],
                 ['• VIA - Método de transporte (terrestre/aereo/maritimo)'],
-                ['• CLIENTE - Empresa/persona destinataria (OBLIGATORIO)'],
+                ['• CLIENTE - Empresa/persona destinataria (MISMO EN TODAS LAS FILAS)'],
                 ['• EMBARCADOR - Empresa que envía la mercancía'],
                 ['• CANT. TEORICA - Cantidad esperada'],
                 ['• CANT. DESPACHADA - Cantidad real enviada'],
