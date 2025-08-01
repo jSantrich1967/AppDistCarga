@@ -309,6 +309,7 @@ const App = {
             const data = await response.json();
             
             if (response.ok) {
+                localStorage.setItem('token', data.token);
                 currentUser = data.user;
                 App.showMainScreen();
             } else {
@@ -548,8 +549,18 @@ const App = {
 
     // API Calls
     apiCall: async function(endpoint, options = {}) {
+        const token = localStorage.getItem('token');
+        const headers = {
+            'Content-Type': 'application/json',
+            ...options.headers,
+        };
+
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const config = {
-            headers: { 'Content-Type': 'application/json', ...options.headers },
+            headers,
             credentials: 'include',
             ...options
         };
