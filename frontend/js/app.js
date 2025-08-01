@@ -238,8 +238,7 @@ const App = {
         safeAddListener('clearArFiltersBtn', 'click', App.clearAccountsFilters);
         safeAddListener('exportArBtn', 'click', App.exportAccountsReceivable);
         
-        // Excel Import event listeners (modal independiente)
-        safeAddListener('importExcelBtn', 'click', App.showExcelImport);
+        // Excel Import event listeners removido - ahora está integrado en el modal de actas
         safeAddListener('excelFileInput', 'change', App.handleFileSelection);
         console.log('🔗 Agregando event listener para processExcelBtn');
         safeAddListener('processExcelBtn', 'click', App.processExcelFile);
@@ -408,7 +407,6 @@ const App = {
 
         // Ocultar funciones administrativas en las secciones
         const adminFunctions = [
-            '#importExcelBtn', // Importación Excel
             '#exportBackupBtn', // Respaldo
             '#importBackupBtn', // Restauración
             '.bulk-status-controls', // Control masivo de estados
@@ -3972,8 +3970,7 @@ ESTADO DEL SISTEMA
     checkExcelElements: function() {
         console.log('🔍 Verificando elementos Excel...');
         const elements = {
-            'importExcelBtn': document.getElementById('importExcelBtn'),
-            'excelFileInput': document.getElementById('excelFileInput'),
+                    'excelFileInput': document.getElementById('excelFileInput'),
             'processExcelBtn': document.getElementById('processExcelBtn'),
             'selectedFileInfo': document.getElementById('selectedFileInfo'),
             'fileName': document.getElementById('fileName'),
