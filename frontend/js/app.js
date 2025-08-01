@@ -1099,22 +1099,40 @@ const App = {
         modal.className = 'modal active';
         modal.id = 'actaDetailsModal';
         
-        // Generar filas de guías con controles de estado
+        // Generar filas de guías con controles de estado (usando nuevos campos profesionales)
         let guidesHTML = '';
         if (acta.guides && acta.guides.length > 0) {
+            console.log('📦 Mostrando guías del acta:', acta.guides);
             guidesHTML = acta.guides.map((guide, index) => {
-                const status = guide.status || 'almacen';
+                const status = guide.status || 'En Almacén';
+                
+                // Mapear campos antiguos a nuevos si es necesario
+                const displayGuide = {
+                    no: guide.no || guide.noGuia || (index + 1),
+                    warehouse: guide.warehouse || guide.almacen || '-',
+                    file: guide.file || guide.expediente || '-',
+                    cliente: guide.cliente || guide.nombreCliente || '-',
+                    direccion: guide.direccion || '-',
+                    cantDespachada: guide.cantDespachada || guide.bultos || guide.cantidad || 0,
+                    piesCubicos: guide.piesCubicos || guide.pies || 0,
+                    peso: guide.peso || guide.kgs || 0,
+                    via: guide.via || 'terrestre',
+                    subtotal: guide.subtotal || 0
+                };
+                
+                console.log(`📋 Guía ${index + 1}:`, displayGuide);
+                
                 return `
                     <tr>
-                        <td>${index + 1}</td>
-                        <td><strong>${guide.noGuia}</strong></td>
-                        <td>${guide.nombreCliente}</td>
-                        <td>${guide.direccion}</td>
-                        <td>${guide.bultos}</td>
-                        <td>${guide.pies}</td>
-                        <td>${guide.kgs}</td>
-                        <td>${guide.via}</td>
-                        <td>$${(guide.subtotal || 0).toFixed(2)}</td>
+                        <td>${displayGuide.no}</td>
+                        <td><strong>${displayGuide.warehouse}</strong></td>
+                        <td>${displayGuide.cliente}</td>
+                        <td>${displayGuide.direccion}</td>
+                        <td>${displayGuide.cantDespachada}</td>
+                        <td>${displayGuide.piesCubicos}</td>
+                        <td>${displayGuide.peso}</td>
+                        <td>${displayGuide.via}</td>
+                        <td>$${parseFloat(displayGuide.subtotal || 0).toFixed(2)}</td>
                         <td>
                             <span id="guideStatus_${index}" class="status-badge ${App.getStatusBadgeClass(status)}">
                                 ${App.getStatusText(status)}
@@ -1182,16 +1200,16 @@ const App = {
                             <table class="guides-detail-table">
                                 <thead>
                                     <tr>
-                                        <th>#</th>
-                                        <th>No. Guía</th>
-                                        <th>Cliente</th>
-                                        <th>Dirección</th>
-                                        <th>Bultos</th>
-                                        <th>Pies³</th>
-                                        <th>Kgs</th>
-                                        <th>Vía</th>
-                                        <th>Subtotal</th>
-                                        <th>Estado</th>
+                                        <th>No.</th>
+                                        <th>WAREHOUSE</th>
+                                        <th>CLIENTE</th>
+                                        <th>DIRECCION</th>
+                                        <th>CANT. DESP.</th>
+                                        <th>PIES CUBICOS</th>
+                                        <th>PESO</th>
+                                        <th>VIA</th>
+                                        <th>SUBTOTAL</th>
+                                        <th>ESTADO</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1334,19 +1352,30 @@ const App = {
             return;
         }
         
-        // Procesar guías
+        // Procesar guías (usando nuevos campos profesionales)
         actaData.guides = [];
         const rows = document.querySelectorAll('#guidesTable tbody tr');
-        rows.forEach(row => {
+        rows.forEach((row, index) => {
             const guide = {};
             row.querySelectorAll('input, select').forEach(input => {
                 if (input.name) guide[input.name] = input.value;
             });
-            if (guide.noGuia) {
-                guide.subtotal = App.calculateSubtotal(guide.pies, actaData.ciudad);
+            
+            // Validar que la guía tenga al menos cliente (campo obligatorio)
+            if (guide.cliente && guide.cliente.trim()) {
+                // Calcular subtotal usando los nuevos campos
+                guide.subtotal = App.calculateSubtotal(guide.piesCubicos || 0, actaData.ciudad);
+                
+                // Asegurar status por defecto
+                guide.status = guide.status || 'En Almacén';
+                guide.createdAt = new Date();
+                
+                console.log(`💾 Guardando guía ${index + 1}:`, guide);
                 actaData.guides.push(guide);
             }
         });
+        
+        console.log(`📦 Total guías a guardar: ${actaData.guides.length}`);
         
         try {
             App.showLoading(true);
@@ -1444,8 +1473,21 @@ const App = {
             </td>
         `;
         
-        // Actualizar total después de agregar la fila
-        setTimeout(() => App.updateTotal(), 100);
+        // Trigger para actualizar el total cuando se editen los campos
+        setTimeout(() => {
+            // Agregar event listeners para campos que afectan el cálculo
+            const piesCubicosInput = row.querySelector('input[name="piesCubicos"]');
+            const destinoInput = row.querySelector('input[name="destino"]');
+            
+            if (piesCubicosInput) {
+                piesCubicosInput.addEventListener('input', () => App.updateTotal());
+            }
+            if (destinoInput) {
+                destinoInput.addEventListener('input', () => App.updateTotal());
+            }
+            
+            App.updateTotal();
+        }, 100);
     },
 
     removeGuideRow: function(button) {
@@ -3674,6 +3716,58 @@ ESTADO DEL SISTEMA
         };
 
         return guia;
+    },
+
+    // Función de testing para verificar creación de guías
+    testGuideCreation: function() {
+        console.log('🧪 Testing creación de guías...');
+        
+        // Verificar que hay tabla de guías
+        const guidesTable = document.querySelector('#guidesTable tbody');
+        if (!guidesTable) {
+            console.error('❌ Tabla de guías no encontrada');
+            return;
+        }
+        
+        // Agregar una guía de prueba
+        const testGuide = {
+            no: '1',
+            warehouse: 'ALM-TEST-01',
+            file: 'EXP-TEST-001',
+            origen: 'Caracas',
+            via: 'terrestre',
+            cliente: 'Cliente de Prueba C.A.',
+            embarcador: 'Empresa Prueba',
+            cantTeorica: '5',
+            cantDespachada: '5',
+            piesCubicos: '10.5',
+            peso: '25',
+            destino: 'Valencia',
+            direccion: 'Av. Test 123, Valencia, Carabobo'
+        };
+        
+        console.log('📦 Agregando guía de prueba:', testGuide);
+        App.addGuideRow(testGuide);
+        
+        // Verificar que se agregó
+        const rows = guidesTable.querySelectorAll('tr');
+        console.log(`📊 Filas en tabla: ${rows.length}`);
+        
+        if (rows.length > 0) {
+            const firstRow = rows[0];
+            const inputs = {};
+            firstRow.querySelectorAll('input, select').forEach(input => {
+                if (input.name) inputs[input.name] = input.value;
+            });
+            console.log('📋 Datos en primera fila:', inputs);
+        }
+        
+        // Verificar cálculo de total
+        App.updateTotal();
+        const totalElement = document.getElementById('totalGeneral');
+        if (totalElement) {
+            console.log(`💰 Total calculado: $${totalElement.textContent}`);
+        }
     },
 
     // Función para verificar elementos Excel
