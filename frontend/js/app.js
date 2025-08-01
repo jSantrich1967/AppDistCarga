@@ -3160,31 +3160,15 @@ ESTADO DEL SISTEMA
     // Accounts Receivable Management
     loadAccountsReceivable: async function() {
         try {
-            console.log('💰 Cargando cuentas por cobrar...');
-            
-            // Obtener filtros actuales
-            const filters = App.getAccountsFilters();
-            
-            // Construir query string para filtros
-            const params = new URLSearchParams();
-            if (filters.status) params.append('status', filters.status);
-            if (filters.agente) params.append('agente', filters.agente);
-            if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
-            if (filters.dateTo) params.append('dateTo', filters.dateTo);
-            
+            const params = new URLSearchParams({
+                // Add any default params if needed
+            });
             const response = await App.apiCall(`/accounts-receivable?${params.toString()}`);
-            
-            // Actualizar estadísticas
-            App.updateAccountsStatistics(response.statistics);
-            
-            // Actualizar tabla
-            App.updateAccountsReceivableTable(response.accounts);
-            
-            console.log('✅ Cuentas por cobrar cargadas:', response.accounts.length);
-            
+            console.log('Respuesta de la API de cuentas por cobrar:', response);
+            App.updateAccountsReceivableUI(response.accounts, response.summary);
         } catch (error) {
             console.error('Error loading accounts receivable:', error);
-            alert('Error al cargar cuentas por cobrar: ' + error.message);
+            Toast.error(`Error al cargar cuentas por cobrar: ${error.message}`);
         }
     },
 

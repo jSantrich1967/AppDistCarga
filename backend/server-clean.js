@@ -529,6 +529,8 @@ app.get('/api/accounts-receivable', authenticateToken, (req, res) => {
         
         const totalPending = accountsReceivable.reduce((sum, ar) => sum + ar.balance, 0);
 
+        console.log('Enviando cuentas por cobrar:', { accounts: accountsReceivable, summary: { totalInvoices: accountsReceivable.length, totalPending } });
+
         res.json({
             accounts: accountsReceivable,
             summary: {
