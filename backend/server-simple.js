@@ -16,7 +16,9 @@ try {
     xlsx = require('xlsx');
     hasExcelSupport = true;
     console.log('✅ Librería XLSX cargada correctamente');
+    console.log('📊 XLSX versión:', xlsx.version);
 } catch (error) {
+    console.error('❌ Error cargando XLSX:', error);
     console.warn('⚠️ XLSX no disponible, usando procesamiento básico:', error.message);
     hasExcelSupport = false;
 }
@@ -25,7 +27,9 @@ try {
     multer = require('multer');
     hasUploadSupport = true;
     console.log('✅ Librería Multer cargada correctamente');
+    console.log('📤 Multer versión:', multer.version || 'N/A');
 } catch (error) {
+    console.error('❌ Error cargando Multer:', error);
     console.warn('⚠️ Multer no disponible, usando procesamiento básico:', error.message);
     hasUploadSupport = false;
 }
@@ -1371,6 +1375,19 @@ app.post('/api/accounts-receivable/:invoiceId/reminder', authenticateToken, auth
     }
 );
 
+// Debug route para verificar estado de librerías
+app.get('/api/debug/libraries', (req, res) => {
+    res.json({
+        hasExcelSupport,
+        hasUploadSupport,
+        xlsxLoaded: !!xlsx,
+        multerLoaded: !!multer,
+        uploadConfigured: !!upload,
+        environment: process.env.NODE_ENV || 'development',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // Excel Import Routes
 app.post('/api/actas/import-excel', authenticateToken, authorizeRoles(['admin']), (req, res, next) => {
     // Verificar que las librerías estén disponibles
@@ -1475,6 +1492,60 @@ app.post('/api/guias/import-excel', authenticateToken, authorizeRoles(['admin'])
     } catch (error) {
         console.error('Error procesando archivo de guías:', error);
         res.status(500).json({ error: 'Error procesando archivo de guías: ' + error.message });
+    }
+});
+
+// Endpoint para procesar guías sin crear actas (para uso en modal de acta)
+app.post('/api/guias/process-excel', authenticateToken, (req, res, next) => {
+    // Verificar que las librerías estén disponibles
+    if (!hasExcelSupport || !hasUploadSupport || !upload) {
+        return res.status(503).json({ 
+            error: 'Funcionalidad de importación Excel no disponible',
+            message: 'Las librerías necesarias no están instaladas correctamente',
+            details: {
+                excelSupport: hasExcelSupport,
+                uploadSupport: hasUploadSupport,
+                uploadConfigured: !!upload
+            }
+        });
+    }
+    upload.single('excelFile')(req, res, next);
+}, async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No se ha proporcionado ningún archivo' });
+        }
+
+        console.log(`📦 Procesando archivo solo para extraer guías: ${req.file.originalname}`);
+
+        // Leer el archivo Excel desde el buffer usando XLSX
+        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+
+        // Convertir a JSON
+        const rawData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
+
+        if (rawData.length < 2) {
+            return res.status(400).json({ error: 'El archivo debe tener al menos una fila de encabezados y una fila de datos' });
+        }
+
+        // Procesar solo para extraer guías, no crear actas
+        const result = await extractGuidesFromExcel(rawData, req.user);
+
+        console.log(`✅ Extracción de guías completada: ${result.success} exitosas, ${result.errors.length} errores`);
+
+        res.json({
+            success: true,
+            guides: result.guides,
+            imported: result.success,
+            errors: result.errors,
+            message: `${result.success} guías extraídas${result.errors.length > 0 ? `, ${result.errors.length} errores` : ''}`
+        });
+
+    } catch (error) {
+        console.error('Error extrayendo guías del archivo:', error);
+        res.status(500).json({ error: 'Error extrayendo guías del archivo: ' + error.message });
     }
 });
 
@@ -1954,6 +2025,58 @@ function extractGuiaDataFromRow(row, mapping, rowIndex) {
     };
 
     return guia;
+}
+
+// Función para extraer solo guías del Excel (sin crear actas)
+async function extractGuidesFromExcel(rawData, user) {
+    const headers = rawData[0];
+    const dataRows = rawData.slice(1);
+    
+    let successCount = 0;
+    let errors = [];
+    let extractedGuides = [];
+
+    // Mapeo de columnas para guías
+    const columnMapping = getGuiasColumnMapping(headers);
+
+    for (let i = 0; i < dataRows.length; i++) {
+        const rowIndex = i + 2; // +2 porque empezamos desde la fila 2
+        const row = dataRows[i];
+
+        try {
+            // Saltar filas vacías
+            if (!row || row.every(cell => !cell)) {
+                continue;
+            }
+
+            // Extraer datos de la guía
+            const guiaData = extractGuiaDataFromRow(row, columnMapping, rowIndex);
+            
+            // Validar que al menos tenga cliente y dirección
+            if (!guiaData.cliente || !guiaData.direccion) {
+                errors.push({
+                    row: rowIndex,
+                    error: 'CLIENTE y DIRECCION son campos obligatorios'
+                });
+                continue;
+            }
+
+            extractedGuides.push(guiaData);
+            successCount++;
+
+        } catch (error) {
+            errors.push({
+                row: rowIndex,
+                error: error.message || 'Error procesando fila'
+            });
+        }
+    }
+
+    return {
+        success: successCount,
+        errors: errors,
+        guides: extractedGuides
+    };
 }
 
 app.listen(PORT, '0.0.0.0', () => {

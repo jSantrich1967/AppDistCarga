@@ -99,11 +99,16 @@ const App = {
         safeAddListener('clearArFiltersBtn', 'click', App.clearAccountsFilters);
         safeAddListener('exportArBtn', 'click', App.exportAccountsReceivable);
         
-        // Excel Import event listeners
+        // Excel Import event listeners (modal independiente)
         safeAddListener('importExcelBtn', 'click', App.showExcelImport);
         safeAddListener('excelFileInput', 'change', App.handleFileSelection);
         console.log('🔗 Agregando event listener para processExcelBtn');
         safeAddListener('processExcelBtn', 'click', App.processExcelFile);
+        
+        // Guides Import event listeners (dentro del modal de acta)
+        safeAddListener('importGuidesBtn', 'click', App.showGuidesImport);
+        safeAddListener('guidesFileInput', 'change', App.handleGuidesFileSelection);
+        safeAddListener('processGuidesBtn', 'click', App.processGuidesFile);
         
         // Modales click fuera para cerrar
         document.querySelectorAll('.modal').forEach(modal => {
@@ -3261,6 +3266,132 @@ ESTADO DEL SISTEMA
 
         } catch (error) {
             App.showImportProgress(false);
+            console.error('Error procesando archivo de guías:', error);
+            alert('❌ Error al procesar archivo de guías: ' + error.message);
+        }
+    },
+
+    // =============================
+    // GUIDES IMPORT (dentro del modal de acta)
+    // =============================
+
+    showGuidesImport: function() {
+        console.log('📦 Mostrando importación de guías');
+        const section = document.getElementById('guidesImportSection');
+        section.style.display = 'block';
+        section.scrollIntoView({ behavior: 'smooth' });
+    },
+
+    hideGuidesImport: function() {
+        console.log('❌ Ocultando importación de guías');
+        const section = document.getElementById('guidesImportSection');
+        section.style.display = 'none';
+        App.clearGuidesFile();
+    },
+
+    handleGuidesFileSelection: function(e) {
+        const file = e.target.files[0];
+        const fileInfo = document.getElementById('guidesFileInfo');
+        const fileName = document.getElementById('guidesFileName');
+        const fileSize = document.getElementById('guidesFileSize');
+        const processBtn = document.getElementById('processGuidesBtn');
+        
+        if (file) {
+            // Validar tipo de archivo
+            const validTypes = [
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            ];
+            
+            if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/)) {
+                alert('❌ Por favor selecciona un archivo Excel válido (.xlsx o .xls)');
+                e.target.value = '';
+                return;
+            }
+            
+            // Validar tamaño (10MB máximo)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('❌ El archivo es demasiado grande. Máximo 10MB permitido.');
+                e.target.value = '';
+                return;
+            }
+            
+            // Mostrar información del archivo
+            fileName.textContent = file.name;
+            fileSize.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+            fileInfo.style.display = 'flex';
+            processBtn.disabled = false;
+            
+            App.selectedGuidesFile = file;
+        } else {
+            App.clearGuidesFile();
+        }
+    },
+
+    clearGuidesFile: function() {
+        document.getElementById('guidesFileInput').value = '';
+        document.getElementById('guidesFileInfo').style.display = 'none';
+        document.getElementById('processGuidesBtn').disabled = true;
+        App.selectedGuidesFile = null;
+    },
+
+    processGuidesFile: async function() {
+        console.log('🔄 processGuidesFile iniciado');
+        console.log('📁 Archivo de guías seleccionado:', App.selectedGuidesFile);
+        
+        if (!App.selectedGuidesFile) {
+            console.error('❌ No hay archivo de guías seleccionado');
+            alert('❌ Por favor selecciona un archivo Excel primero');
+            return;
+        }
+
+        const confirmed = confirm(
+            '¿Importar guías desde este archivo Excel?\n\n' +
+            '✅ Las guías se agregarán directamente a esta acta\n' +
+            '📝 No se creará una nueva acta\n\n' +
+            'Archivo: ' + App.selectedGuidesFile.name
+        );
+
+        if (!confirmed) return;
+
+        try {
+            console.log('📤 Enviando archivo de guías...');
+
+            // Crear FormData para enviar el archivo
+            const formData = new FormData();
+            formData.append('excelFile', App.selectedGuidesFile);
+
+            // Procesar archivo usando el endpoint de plantilla
+            const response = await fetch('/api/guias/process-excel', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || `Error HTTP: ${response.status}`);
+            }
+
+            console.log('✅ Guías procesadas:', result);
+
+            // Agregar las guías al formulario actual
+            if (result.guides && result.guides.length > 0) {
+                result.guides.forEach(guide => {
+                    App.addGuideRow(guide);
+                });
+                
+                App.updateTotal();
+                alert(`✅ ¡${result.guides.length} guías importadas correctamente!\n\nLas guías se han agregado a esta acta.`);
+                App.hideGuidesImport();
+            } else {
+                alert('⚠️ No se encontraron guías válidas en el archivo');
+            }
+
+        } catch (error) {
             console.error('Error procesando archivo de guías:', error);
             alert('❌ Error al procesar archivo de guías: ' + error.message);
         }

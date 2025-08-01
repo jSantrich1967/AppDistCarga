@@ -696,10 +696,16 @@
                     <div class="form-section">
                         <div class="section-header">
                             <h4>Detalle de Guías</h4>
-                            <button type="button" id="addGuideBtn" class="btn btn-secondary">
-                                <i class="fas fa-plus"></i>
-                                Agregar Guía
-                            </button>
+                            <div class="guides-actions">
+                                <button type="button" id="addGuideBtn" class="btn btn-secondary">
+                                    <i class="fas fa-plus"></i>
+                                    Agregar Guía
+                                </button>
+                                <button type="button" id="importGuidesBtn" class="btn btn-success">
+                                    <i class="fas fa-file-excel"></i>
+                                    Importar desde Excel
+                                </button>
+                            </div>
                         </div>
                         <div class="table-container">
                             <table id="guidesTable" class="guides-table">
@@ -727,6 +733,41 @@
                         </div>
                         <div class="total-section">
                             <strong>Total General: $<span id="totalGeneral">0.00</span></strong>
+                        </div>
+
+                        <!-- Mini sección de importación Excel dentro del acta -->
+                        <div id="guidesImportSection" class="guides-import-section" style="display: none;">
+                            <div class="import-header">
+                                <h5><i class="fas fa-file-excel"></i> Importar Guías desde Excel</h5>
+                                <button type="button" class="btn-close" onclick="App.hideGuidesImport()">×</button>
+                            </div>
+                            <div class="import-content">
+                                <div class="import-instructions">
+                                    <p><strong>📋 Instrucciones:</strong></p>
+                                    <ul>
+                                        <li>Selecciona un archivo Excel (.xlsx) con tus guías</li>
+                                        <li>Las guías se agregarán a esta acta automáticamente</li>
+                                        <li><a href="/api/plantilla-excel" target="_blank">📥 Descargar plantilla</a></li>
+                                    </ul>
+                                </div>
+                                <div class="file-upload-mini">
+                                    <input type="file" id="guidesFileInput" accept=".xlsx,.xls" style="display: none;">
+                                    <button type="button" class="btn btn-outline" onclick="document.getElementById('guidesFileInput').click()">
+                                        <i class="fas fa-folder-open"></i>
+                                        Seleccionar Archivo
+                                    </button>
+                                    <div id="guidesFileInfo" class="file-info-mini" style="display: none;">
+                                        <span id="guidesFileName"></span>
+                                        <span id="guidesFileSize"></span>
+                                    </div>
+                                </div>
+                                <div class="import-actions-mini">
+                                    <button type="button" id="processGuidesBtn" class="btn btn-primary" disabled>
+                                        <i class="fas fa-upload"></i>
+                                        Importar Guías
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </form>
