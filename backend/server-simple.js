@@ -7,56 +7,7 @@ const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const cookieParser = require('cookie-parser');
 // Dependencias Excel - Configuración simplificada para Render
-console.log('🔧 Inicializando librerías Excel...');
-
-let xlsx = null;
-let multer = null;
-let upload = null;
-let hasExcelSupport = false;
-let hasUploadSupport = false;
-
-// Cargar XLSX
-try {
-    xlsx = require('xlsx');
-    hasExcelSupport = true;
-    console.log('✅ XLSX: Cargado exitosamente');
-} catch (error) {
-    console.error('❌ XLSX: Error al cargar -', error.message);
-    hasExcelSupport = false;
-}
-
-// Cargar Multer
-try {
-    multer = require('multer');
-    hasUploadSupport = true;
-    console.log('✅ Multer: Cargado exitosamente');
-} catch (error) {
-    console.error('❌ Multer: Error al cargar -', error.message);
-    hasUploadSupport = false;
-}
-
-// Configurar upload solo si ambas librerías funcionan
-if (hasExcelSupport && hasUploadSupport) {
-    try {
-        upload = multer({
-            storage: multer.memoryStorage(),
-            limits: { fileSize: 10 * 1024 * 1024 },
-            fileFilter: (req, file, cb) => {
-                const isExcel = file.originalname.match(/\.(xlsx|xls)$/i) || 
-                              file.mimetype.includes('excel') || 
-                              file.mimetype.includes('spreadsheet');
-                cb(null, isExcel);
-            }
-        });
-        console.log('✅ Upload: Configurado correctamente');
-    } catch (error) {
-        console.error('❌ Upload: Error en configuración -', error.message);
-        upload = null;
-        hasUploadSupport = false;
-    }
-}
-
-console.log(`📊 Estado librerías: XLSX=${hasExcelSupport}, Multer=${hasUploadSupport}, Upload=${!!upload}`);
+console.log('📦 Servidor simplificado - Procesamiento Excel/CSV en frontend');
 
 // Cargar variables de entorno
 require('dotenv').config();
@@ -103,19 +54,14 @@ app.use(express.urlencoded({ extended: true }));
 // Serve static files from the frontend directory
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-// Ruta para descargar plantilla Excel
+// Plantilla Excel - Procesamiento en frontend
 app.get('/api/plantilla-excel', (req, res) => {
-    try {
-        // Verificar que XLSX esté disponible
-        if (!hasExcelSupport) {
-            return res.status(503).json({ 
-                error: 'Funcionalidad de generación Excel no disponible',
-                message: 'La librería XLSX no está instalada correctamente'
-            });
-        }
-        // Datos para la plantilla
-        // Plantilla SOLO para guías (sin campos de acta)
-        const headers = [
+    res.json({ 
+        message: 'Plantilla generada en frontend',
+        instructions: 'Usa el botón "Plantilla Excel" en la interfaz para descargar'
+    });
+});
+// Base de datos en memoria usando archivo JSON
             'No', 'WAREHOUSE', 'FILE', 'ORIGEN', 'VIA', 'CLIENTE', 'EMBARCADOR', 
             'CANT. TEORICA', 'CANT. DESPACHADA', 'PIES CUBICOS', 'PESO', 'DESTINO', 'DIRECCION'
         ];
