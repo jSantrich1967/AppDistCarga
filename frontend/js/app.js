@@ -19,6 +19,107 @@ const loginForm = document.getElementById('loginForm');
 const loginError = document.getElementById('loginError');
 const loadingOverlay = document.getElementById('loadingOverlay');
 
+// ========================================
+// 🎉 SISTEMA DE NOTIFICACIONES MODERNO
+// ========================================
+
+const Toast = {
+    show: function(message, type = 'info', duration = 4000) {
+        // Crear contenedor si no existe
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            container.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 10000;
+                max-width: 400px;
+                pointer-events: none;
+            `;
+            document.body.appendChild(container);
+        }
+
+        // Crear toast
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            background: ${this.getColor(type)};
+            color: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            pointer-events: auto;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        `;
+
+        toast.innerHTML = `
+            <i class="fas ${this.getIcon(type)}" style="font-size: 16px;"></i>
+            <span style="flex: 1;">${message}</span>
+            <button onclick="this.parentElement.remove()" style="
+                background: rgba(255,255,255,0.2);
+                border: none;
+                color: white;
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                cursor: pointer;
+                font-size: 12px;
+            ">×</button>
+        `;
+
+        container.appendChild(toast);
+
+        // Animación de entrada
+        setTimeout(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateX(0)';
+        }, 10);
+
+        // Auto remove
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(100%)';
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    },
+
+    getColor: function(type) {
+        const colors = {
+            success: 'linear-gradient(135deg, #10b981, #059669)',
+            error: 'linear-gradient(135deg, #ef4444, #dc2626)',
+            warning: 'linear-gradient(135deg, #f59e0b, #d97706)',
+            info: 'linear-gradient(135deg, #3b82f6, #2563eb)'
+        };
+        return colors[type] || colors.info;
+    },
+
+    getIcon: function(type) {
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-triangle',
+            warning: 'fa-exclamation-circle',
+            info: 'fa-info-circle'
+        };
+        return icons[type] || icons.info;
+    },
+
+    success: function(message, duration) { this.show(message, 'success', duration); },
+    error: function(message, duration) { this.show(message, 'error', duration); },
+    warning: function(message, duration) { this.show(message, 'warning', duration); },
+    info: function(message, duration) { this.show(message, 'info', duration); }
+};
+
 const App = {
     // Inicialización
     initializeApp: function() {
@@ -637,7 +738,7 @@ const App = {
                 body: JSON.stringify({ name })
             });
             nameInput.value = '';
-            alert('Agente añadido exitosamente.');
+            Toast.success('Agente añadido exitosamente');
             
             // Recargar y actualizar inmediatamente toda la UI de agentes
             await App.loadAgents(); // Recarga la lista en configuración
@@ -651,7 +752,7 @@ const App = {
             }
         } catch (error) {
             console.error('Error adding agent:', error);
-            alert('Error al añadir el agente.');
+            Toast.error('Error al añadir el agente');
         } finally {
             App.showLoading(false);
         }
@@ -664,7 +765,7 @@ const App = {
                 await App.apiCall(`/agents/${agentId}`, {
                     method: 'DELETE'
                 });
-                alert('Agente eliminado exitosamente.');
+                Toast.success('Agente eliminado exitosamente');
                 
                 // Recargar y actualizar inmediatamente toda la UI de agentes
                 await App.loadAgents(); // Recarga la lista en configuración
@@ -833,7 +934,33 @@ const App = {
             
         } catch (error) {
             console.error('Error loading actas:', error);
-            alert('Error al cargar actas. Revisa la consola.');
+            
+            // Manejo más elegante del error sin alert molesto
+            const tbody = document.querySelector('#actasTable tbody');
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 20px;">
+                            <div style="color: #f56565; margin-bottom: 10px;">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                Error al cargar las actas
+                            </div>
+                            <div style="color: #718096; font-size: 14px;">
+                                ${error.message === 'Failed to fetch' ? 'Problema de conexión. Refresca la página.' : 
+                                  error.message === 'Unauthorized' ? 'Sesión expirada. Por favor, inicia sesión nuevamente.' :
+                                  'Error de servidor. Intenta más tarde.'}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+            
+            // Actualizar contador
+            const counter = document.getElementById('actasCounter');
+            if (counter) {
+                counter.textContent = 'Error al cargar';
+                counter.style.color = '#f56565';
+            }
         }
     },
 
@@ -1386,7 +1513,7 @@ const App = {
         
         // Validación simple
         if (!actaData.fecha || !actaData.ciudad || !actaData.agente) {
-            alert('Por favor, completa todos los campos obligatorios: Fecha, Ciudad y Agente.');
+            Toast.warning('Por favor, completa todos los campos obligatorios: Fecha, Ciudad y Agente');
             return;
         }
         
@@ -1450,7 +1577,7 @@ const App = {
                             body: JSON.stringify({ actaId: result.id })
                         });
                         App.showLoading(false);
-                        alert('¡Factura generada exitosamente!');
+                        Toast.success('¡Factura generada exitosamente!');
                     } catch (invoiceError) {
                         App.showLoading(false);
                         console.error('Error generando factura:', invoiceError);
@@ -1464,7 +1591,7 @@ const App = {
             
         } catch (error) {
             console.error('Error saving acta:', error);
-            alert(`Error al guardar acta: ${error.message}`);
+            Toast.error(`Error al guardar acta: ${error.message}`);
         } finally {
             App.showLoading(false);
         }
@@ -3321,7 +3448,7 @@ ESTADO DEL SISTEMA
             ];
             
             if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/)) {
-                alert('❌ Por favor selecciona un archivo Excel válido (.xlsx o .xls)');
+                Toast.error('Por favor selecciona un archivo Excel válido (.xlsx o .xls)');
                 e.target.value = '';
                 return;
             }
