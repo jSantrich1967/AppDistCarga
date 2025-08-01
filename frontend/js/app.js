@@ -3,6 +3,10 @@ let currentUser = null;
 let cityRates = {};
 let currentActa = null;
 
+// 🌙 Tema oscuro/claro
+const THEME_KEY = 'app-theme';
+let currentTheme = localStorage.getItem(THEME_KEY) || 'light';
+
 // API Base URL - Dinámico según el host actual
 // Si estamos en producción en Render, el dominio será appdistcarga.onrender.com
 // Si estamos en desarrollo (localhost), usará ese mismo origen.
@@ -23,8 +27,41 @@ const App = {
         if (fechaInput) {
             fechaInput.value = today;
         }
+        App.setupTheme();
         App.setupEventListeners();
         App.checkAuthToken();
+    },
+
+    // ========================================
+    // 🌙 SISTEMA DE TEMAS
+    // ========================================
+
+    setupTheme: function() {
+        // Aplicar tema inicial
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        App.updateThemeIcon();
+    },
+
+    toggleTheme: function() {
+        currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        localStorage.setItem(THEME_KEY, currentTheme);
+        App.updateThemeIcon();
+        
+        // Animación suave
+        document.body.style.transition = 'background-color 300ms ease, color 300ms ease';
+        setTimeout(() => {
+            document.body.style.transition = '';
+        }, 300);
+    },
+
+    updateThemeIcon: function() {
+        const themeToggle = document.getElementById('themeToggle');
+        const icon = themeToggle?.querySelector('i');
+        if (icon) {
+            icon.className = currentTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+            themeToggle.title = currentTheme === 'light' ? 'Modo oscuro' : 'Modo claro';
+        }
     },
 
     // Event Listeners
@@ -47,6 +84,7 @@ const App = {
 
         // Event listeners principales
         safeAddListener('logoutBtn', 'click', App.handleLogout);
+        safeAddListener('themeToggle', 'click', App.toggleTheme);
         
         // Navegación
         document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -418,9 +456,9 @@ const App = {
         };
         
         try {
-            const response = await fetch(`${API_BASE}${endpoint}`, config);
-            
-            if (!response.ok) {
+        const response = await fetch(`${API_BASE}${endpoint}`, config);
+        
+        if (!response.ok) {
                 let errorMessage = `Error ${response.status}: ${response.statusText}`;
                 try {
                     const errorData = await response.json();
@@ -430,13 +468,13 @@ const App = {
                     console.warn('No se pudo parsear la respuesta de error:', e);
                 }
                 throw new Error(errorMessage);
-            }
-            
-            const contentType = response.headers.get("content-type");
-            if (contentType && contentType.indexOf("application/json") !== -1) {
-                return response.json();
-            } else {
-                return response.text();
+        }
+        
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            return response.json();
+        } else {
+            return response.text();
             }
         } catch (error) {
             // Si es un error de red o de fetch
@@ -954,7 +992,7 @@ const App = {
             console.error('❌ Error exportando actas:', error);
             alert('Error al exportar actas');
         } finally {
-            App.showLoading(false);
+        App.showLoading(false);
         }
     },
 
@@ -1486,7 +1524,7 @@ const App = {
                 destinoInput.addEventListener('input', () => App.updateTotal());
             }
             
-            App.updateTotal();
+        App.updateTotal();
         }, 100);
     },
 
@@ -2155,15 +2193,15 @@ ${App.formatDate(payment.createdAt)}
 
     showPaymentModal: async function(invoiceId) {
         try {
-            // Asegurar que el loading overlay esté cerrado antes de mostrar el modal
-            App.showLoading(false);
+        // Asegurar que el loading overlay esté cerrado antes de mostrar el modal
+        App.showLoading(false);
             
             // Obtener información de la factura
             const invoice = await App.apiCall(`/invoices/${invoiceId}`);
             
             // Configurar formulario
-            document.getElementById('paymentInvoiceId').value = invoiceId;
-            document.getElementById('paymentForm').reset();
+        document.getElementById('paymentInvoiceId').value = invoiceId;
+        document.getElementById('paymentForm').reset();
             
             // Mostrar información de la factura
             const invoiceInfoDiv = document.getElementById('paymentInvoiceInfo');
@@ -2197,7 +2235,7 @@ ${App.formatDate(payment.createdAt)}
             referenceInput.placeholder = `Ref. para ${invoice.number}`;
             
             // Mostrar modal
-            document.getElementById('paymentModal').classList.add('active');
+        document.getElementById('paymentModal').classList.add('active');
             
         } catch (error) {
             console.error('Error loading invoice for payment:', error);
