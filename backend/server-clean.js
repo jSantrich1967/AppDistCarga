@@ -527,7 +527,15 @@ app.get('/api/accounts-receivable', authenticateToken, (req, res) => {
             };
         }).filter(account => account.balance > 0);
         
-        res.json(accountsReceivable);
+        const totalPending = accountsReceivable.reduce((sum, ar) => sum + ar.balance, 0);
+
+        res.json({
+            accounts: accountsReceivable,
+            summary: {
+                totalInvoices: accountsReceivable.length,
+                totalPending
+            }
+        });
     } catch (error) {
         console.error('Error obteniendo cuentas por cobrar:', error);
         res.status(500).json({ error: 'Error obteniendo cuentas por cobrar' });
