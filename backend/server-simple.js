@@ -6,57 +6,57 @@ const path = require('path');
 const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const cookieParser = require('cookie-parser');
-// Dependencias con manejo de errores y fallbacks
-let xlsx;
-let multer;
-let upload;
+// Dependencias Excel - Configuración simplificada para Render
+console.log('🔧 Inicializando librerías Excel...');
+
+let xlsx = null;
+let multer = null;
+let upload = null;
 let hasExcelSupport = false;
 let hasUploadSupport = false;
 
+// Cargar XLSX
 try {
-    console.log('🔄 Intentando cargar XLSX...');
     xlsx = require('xlsx');
     hasExcelSupport = true;
-    console.log('✅ Librería XLSX cargada correctamente');
-    console.log('📊 XLSX versión:', xlsx.version || 'N/A');
+    console.log('✅ XLSX: Cargado exitosamente');
 } catch (error) {
-    console.error('❌ Error cargando XLSX:', error);
-    console.warn('⚠️ XLSX no disponible:', error.message);
+    console.error('❌ XLSX: Error al cargar -', error.message);
     hasExcelSupport = false;
-    xlsx = null;
 }
 
+// Cargar Multer
 try {
-    console.log('🔄 Intentando cargar Multer...');
     multer = require('multer');
     hasUploadSupport = true;
-    console.log('✅ Librería Multer cargada correctamente');
-    console.log('📤 Multer versión:', multer.version || 'N/A');
-    
-    // Configurar Multer solo si se cargó correctamente
-    upload = multer({
-        storage: multer.memoryStorage(),
-        limits: {
-            fileSize: 10 * 1024 * 1024 // 10MB límite
-        },
-        fileFilter: (req, file, cb) => {
-            if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
-                file.mimetype === 'application/vnd.ms-excel' ||
-                file.originalname.match(/\.(xlsx|xls)$/)) {
-                cb(null, true);
-            } else {
-                cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls)'), false);
-            }
-        }
-    });
-    console.log('✅ Multer configurado correctamente');
+    console.log('✅ Multer: Cargado exitosamente');
 } catch (error) {
-    console.error('❌ Error cargando Multer:', error);
-    console.warn('⚠️ Multer no disponible:', error.message);
+    console.error('❌ Multer: Error al cargar -', error.message);
     hasUploadSupport = false;
-    multer = null;
-    upload = null;
 }
+
+// Configurar upload solo si ambas librerías funcionan
+if (hasExcelSupport && hasUploadSupport) {
+    try {
+        upload = multer({
+            storage: multer.memoryStorage(),
+            limits: { fileSize: 10 * 1024 * 1024 },
+            fileFilter: (req, file, cb) => {
+                const isExcel = file.originalname.match(/\.(xlsx|xls)$/i) || 
+                              file.mimetype.includes('excel') || 
+                              file.mimetype.includes('spreadsheet');
+                cb(null, isExcel);
+            }
+        });
+        console.log('✅ Upload: Configurado correctamente');
+    } catch (error) {
+        console.error('❌ Upload: Error en configuración -', error.message);
+        upload = null;
+        hasUploadSupport = false;
+    }
+}
+
+console.log(`📊 Estado librerías: XLSX=${hasExcelSupport}, Multer=${hasUploadSupport}, Upload=${!!upload}`);
 
 // Cargar variables de entorno
 require('dotenv').config();
@@ -1494,20 +1494,29 @@ app.post('/api/guias/import-excel', authenticateToken, authorizeRoles(['admin'])
     }
 });
 
-// Endpoint para procesar guías sin crear actas (para uso en modal de acta)
+// Endpoint simplificado para procesar guías (versión más robusta)
 app.post('/api/guias/process-excel', authenticateToken, (req, res, next) => {
-    // Verificar que las librerías estén disponibles
-    if (!hasExcelSupport || !hasUploadSupport || !upload) {
+    console.log('🔍 Verificando estado de librerías...');
+    console.log(`📊 XLSX: ${hasExcelSupport}, Multer: ${hasUploadSupport}, Upload: ${!!upload}`);
+    
+    // Verificación más permisiva - solo XLSX es absolutamente necesario
+    if (!hasExcelSupport || !xlsx) {
+        console.error('❌ XLSX no disponible');
         return res.status(503).json({ 
-            error: 'Funcionalidad de importación Excel no disponible',
-            message: 'Las librerías necesarias no están instaladas correctamente',
-            details: {
-                excelSupport: hasExcelSupport,
-                uploadSupport: hasUploadSupport,
-                uploadConfigured: !!upload
-            }
+            error: 'Funcionalidad de importación Excel no disponible - XLSX requerido',
+            details: { xlsxAvailable: hasExcelSupport }
         });
     }
+
+    // Si no hay multer, usar middleware básico
+    if (!upload || !hasUploadSupport) {
+        console.warn('⚠️ Usando procesamiento básico sin Multer');
+        return res.status(503).json({
+            error: 'Sistema de uploads no disponible',
+            details: { multerAvailable: hasUploadSupport }
+        });
+    }
+
     upload.single('excelFile')(req, res, next);
 }, async (req, res) => {
     try {
@@ -1515,36 +1524,54 @@ app.post('/api/guias/process-excel', authenticateToken, (req, res, next) => {
             return res.status(400).json({ error: 'No se ha proporcionado ningún archivo' });
         }
 
-        console.log(`📦 Procesando archivo solo para extraer guías: ${req.file.originalname}`);
+        console.log(`📦 Procesando archivo: ${req.file.originalname}, Tamaño: ${req.file.size} bytes`);
 
-        // Leer el archivo Excel desde el buffer usando XLSX
+        // Verificar que XLSX esté disponible antes de usarlo
+        if (!xlsx) {
+            throw new Error('XLSX no está disponible en este momento');
+        }
+
+        // Leer el archivo Excel desde el buffer
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            throw new Error('El archivo Excel no contiene hojas válidas');
+        }
+
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
 
         // Convertir a JSON
         const rawData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
 
-        if (rawData.length < 2) {
-            return res.status(400).json({ error: 'El archivo debe tener al menos una fila de encabezados y una fila de datos' });
+        if (!rawData || rawData.length < 2) {
+            return res.status(400).json({ 
+                error: 'El archivo debe tener al menos una fila de encabezados y una fila de datos',
+                found: rawData ? rawData.length : 0
+            });
         }
 
-        // Procesar solo para extraer guías, no crear actas
+        console.log(`📊 Datos extraídos: ${rawData.length} filas`);
+
+        // Procesar solo para extraer guías
         const result = await extractGuidesFromExcel(rawData, req.user);
 
-        console.log(`✅ Extracción de guías completada: ${result.success} exitosas, ${result.errors.length} errores`);
+        console.log(`✅ Resultado: ${result.success} guías exitosas, ${result.errors.length} errores`);
 
         res.json({
             success: true,
-            guides: result.guides,
-            imported: result.success,
-            errors: result.errors,
-            message: `${result.success} guías extraídas${result.errors.length > 0 ? `, ${result.errors.length} errores` : ''}`
+            guides: result.guides || [],
+            imported: result.success || 0,
+            errors: result.errors || [],
+            message: `${result.success || 0} guías extraídas${result.errors && result.errors.length > 0 ? `, ${result.errors.length} errores` : ''}`
         });
 
     } catch (error) {
-        console.error('Error extrayendo guías del archivo:', error);
-        res.status(500).json({ error: 'Error extrayendo guías del archivo: ' + error.message });
+        console.error('❌ Error procesando archivo:', error);
+        res.status(500).json({ 
+            error: 'Error procesando archivo: ' + error.message,
+            details: error.stack
+        });
     }
 });
 
