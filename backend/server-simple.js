@@ -1425,6 +1425,59 @@ app.post('/api/actas/import-excel', authenticateToken, authorizeRoles(['admin'])
     }
 });
 
+// Nuevo endpoint para importar solo guías
+app.post('/api/guias/import-excel', authenticateToken, authorizeRoles(['admin']), (req, res, next) => {
+    // Verificar que las librerías estén disponibles
+    if (!hasExcelSupport || !hasUploadSupport || !upload) {
+        return res.status(503).json({ 
+            error: 'Funcionalidad de importación Excel no disponible',
+            message: 'Las librerías necesarias no están instaladas correctamente',
+            details: {
+                excelSupport: hasExcelSupport,
+                uploadSupport: hasUploadSupport,
+                uploadConfigured: !!upload
+            }
+        });
+    }
+    upload.single('excelFile')(req, res, next);
+}, async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No se ha proporcionado ningún archivo' });
+        }
+
+        console.log(`📦 Procesando archivo de guías: ${req.file.originalname}`);
+
+        // Leer el archivo Excel desde el buffer usando XLSX
+        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+
+        // Convertir a JSON
+        const rawData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
+
+        if (rawData.length < 2) {
+            return res.status(400).json({ error: 'El archivo debe tener al menos una fila de encabezados y una fila de datos' });
+        }
+
+        // Procesar datos de guías
+        const result = await processGuiasData(rawData, req.user);
+
+        console.log(`✅ Importación de guías completada: ${result.success} exitosas, ${result.errors.length} errores`);
+
+        res.json({
+            success: true,
+            imported: result.success,
+            errors: result.errors,
+            message: `Importación completada: ${result.success} guías creadas${result.errors.length > 0 ? `, ${result.errors.length} errores` : ''}`
+        });
+
+    } catch (error) {
+        console.error('Error procesando archivo de guías:', error);
+        res.status(500).json({ error: 'Error procesando archivo de guías: ' + error.message });
+    }
+});
+
 // Función para procesar datos del Excel
 async function processExcelData(rawData, user) {
     const headers = rawData[0];
@@ -1763,6 +1816,145 @@ app.get('*', (req, res) => {
         res.sendFile(path.join(__dirname, '../frontend', 'index.html'));
     }
 });
+
+// Función para procesar datos de guías específicamente
+async function processGuiasData(rawData, user) {
+    const headers = rawData[0];
+    const dataRows = rawData.slice(1);
+    
+    let successCount = 0;
+    let errors = [];
+
+    // Mapeo de columnas para guías
+    const columnMapping = getGuiasColumnMapping(headers);
+
+    for (let i = 0; i < dataRows.length; i++) {
+        const rowIndex = i + 2; // +2 porque empezamos desde la fila 2
+        const row = dataRows[i];
+
+        try {
+            // Saltar filas vacías
+            if (!row || row.every(cell => !cell)) {
+                continue;
+            }
+
+            // Extraer datos de la guía
+            const guiaData = extractGuiaDataFromRow(row, columnMapping, rowIndex);
+            
+            // Validar que al menos tenga cliente y dirección
+            if (!guiaData.cliente || !guiaData.direccion) {
+                errors.push({
+                    row: rowIndex,
+                    error: 'CLIENTE y DIRECCION son campos obligatorios'
+                });
+                continue;
+            }
+
+            // Crear una acta simple para contener esta guía
+            const newActa = {
+                id: Date.now().toString() + '_' + i,
+                fecha: new Date().toISOString().split('T')[0],
+                ciudad: guiaData.destino || 'Ciudad no especificada',
+                agente: user.name || user.username,
+                modeloCamion: '',
+                anioCamion: '',
+                placaCamion: '',
+                nombreChofer: '',
+                telefonoChofer: '',
+                nombreAyudante: '',
+                telefonoAyudante: '',
+                guides: [guiaData],
+                status: 'pending',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                importedFrom: 'excel-guias',
+                importedBy: user.username,
+                importedAt: new Date()
+            };
+
+            // Agregar el courier ID si el usuario es courier
+            if (user.role === 'courier') {
+                newActa.courierId = user.id;
+            }
+
+            // Guardar en la base de datos
+            db.actas.push(newActa);
+            successCount++;
+
+        } catch (error) {
+            errors.push({
+                row: rowIndex,
+                error: error.message || 'Error procesando fila'
+            });
+        }
+    }
+
+    // Guardar cambios
+    saveDatabase();
+
+    return {
+        success: successCount,
+        errors: errors
+    };
+}
+
+// Función para mapear columnas de guías
+function getGuiasColumnMapping(headers) {
+    const mapping = {};
+    
+    const columnPatterns = {
+        no: /^no\.?$|numero/i,
+        warehouse: /warehouse|almacen|bodega/i,
+        file: /file|expediente|archivo/i,
+        origen: /origen|origin|source/i,
+        via: /via|route|tipo|transporte/i,
+        cliente: /cliente|client|customer/i,
+        embarcador: /embarcador|shipper|sender/i,
+        cantTeorica: /cant\.?\s*teorica|theoretical\s*qty|cantidad\s*teorica/i,
+        cantDespachada: /cant\.?\s*despachada|dispatched\s*qty|cantidad\s*despachada/i,
+        piesCubicos: /pies\s*cubicos|cubic\s*feet|ft3|pies³/i,
+        peso: /peso|weight|kg|kgs|kilos/i,
+        destino: /destino|destination|dest/i,
+        direccion: /direccion|address|addr/i
+    };
+
+    headers.forEach((header, index) => {
+        if (!header) return;
+        
+        const cleanHeader = header.toString().trim();
+        
+        Object.keys(columnPatterns).forEach(field => {
+            if (columnPatterns[field].test(cleanHeader)) {
+                mapping[field] = index;
+            }
+        });
+    });
+
+    return mapping;
+}
+
+// Función para extraer datos de guía de una fila
+function extractGuiaDataFromRow(row, mapping, rowIndex) {
+    const guia = {
+        no: row[mapping.no] || rowIndex - 1,
+        warehouse: row[mapping.warehouse] || '',
+        file: row[mapping.file] || '',
+        origen: row[mapping.origen] || '',
+        via: row[mapping.via] || 'terrestre',
+        cliente: row[mapping.cliente] || '',
+        embarcador: row[mapping.embarcador] || '',
+        cantTeorica: parseInt(row[mapping.cantTeorica]) || 0,
+        cantDespachada: parseInt(row[mapping.cantDespachada]) || 0,
+        piesCubicos: parseFloat(row[mapping.piesCubicos]) || 0,
+        peso: parseFloat(row[mapping.peso]) || 0,
+        destino: row[mapping.destino] || '',
+        direccion: row[mapping.direccion] || '',
+        status: 'En Almacén',
+        createdAt: new Date()
+    };
+
+    return guia;
+}
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor corriendo en http://0.0.0.0:${PORT}`);

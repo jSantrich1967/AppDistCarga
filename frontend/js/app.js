@@ -3212,8 +3212,9 @@ ESTADO DEL SISTEMA
         }
 
         const confirmed = confirm(
-            '¿Está seguro de que desea importar las actas desde este archivo Excel?\n\n' +
-            '⚠️ Se crearán nuevas actas en el sistema basadas en los datos del archivo.\n\n' +
+            '¿Está seguro de que desea importar las guías desde este archivo Excel?\n\n' +
+            '⚠️ Se crearán nuevas actas con las guías del archivo.\n' +
+            '✅ Cada fila se convertirá en una guía dentro de una acta.\n\n' +
             'Archivo: ' + App.selectedFile.name
         );
 
@@ -3226,8 +3227,8 @@ ESTADO DEL SISTEMA
             const formData = new FormData();
             formData.append('excelFile', App.selectedFile);
 
-            // Enviar archivo al servidor
-            const response = await fetch('/api/actas/import-excel', {
+            // Enviar archivo al servidor (usando el nuevo endpoint para guías)
+            const response = await fetch('/api/guias/import-excel', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -3254,8 +3255,8 @@ ESTADO DEL SISTEMA
 
         } catch (error) {
             App.showImportProgress(false);
-            console.error('Error procesando archivo Excel:', error);
-            alert('❌ Error al procesar archivo: ' + error.message);
+            console.error('Error procesando archivo de guías:', error);
+            alert('❌ Error al procesar archivo de guías: ' + error.message);
         }
     },
 
@@ -3308,14 +3309,14 @@ ESTADO DEL SISTEMA
 
         resultsDiv.innerHTML = `
             <div class="results-header">
-                <h4>📊 Resultados de la Importación</h4>
+                <h4>📦 Resultados de la Importación de Guías</h4>
             </div>
             
             <div class="results-summary">
                 <div class="summary-item success">
                     <div class="summary-icon">✅</div>
                     <div class="summary-content">
-                        <div class="summary-label">Actas Creadas</div>
+                        <div class="summary-label">Guías Importadas</div>
                         <div class="summary-value">${result.imported}</div>
                     </div>
                 </div>
