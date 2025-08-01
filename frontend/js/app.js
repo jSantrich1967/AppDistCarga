@@ -932,25 +932,12 @@ const App = {
             
         } catch (error) {
             console.error('Error loading actas:', error);
-            
-            // Manejo más elegante del error sin alert molesto
             const tbody = document.querySelector('#actasTable tbody');
             if (tbody) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="8" style="text-align: center; padding: 20px;">
-                            <div style="color: #f56565; margin-bottom: 10px;">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                Error al cargar las actas
-                            </div>
-                            <div style="color: #718096; font-size: 14px;">
-                                ${error.message === 'Failed to fetch' ? 'Problema de conexión. Refresca la página.' : 
-                                  error.message === 'Unauthorized' ? 'Sesión expirada. Por favor, inicia sesión nuevamente.' :
-                                  'Error de servidor. Intenta más tarde.'}
-                            </div>
-                        </td>
-                    </tr>
-                `;
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center text-red-500">
+                                No tienes actas asignadas
+                                <p class="text-sm text-gray-500">Contacta al administrador para más información.</p>
+                            </td></tr>`;
             }
             
             // Actualizar contador
