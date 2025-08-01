@@ -3214,46 +3214,42 @@ ESTADO DEL SISTEMA
         document.getElementById('aging90plus').textContent = `$${stats.byAging['90+'].toFixed(2)}`;
     },
 
-    updateAccountsReceivableTable: function(accounts) {
-        const tbody = document.querySelector('#accountsReceivableTable tbody');
+    updateAccountsReceivableUI: function(accounts, summary) {
+        const tbody = document.querySelector('#arTable tbody');
+        const summaryElement = document.getElementById('arSummary');
+
+        // Defensive coding: ensure summary and its properties exist
+        const totalInvoices = summary?.totalInvoices || 0;
+        const totalPending = summary?.totalPending || 0;
+
+        summaryElement.innerHTML = `
+            <span>Total Facturas: <strong>${totalInvoices}</strong></span>
+            <span>Monto Pendiente: <strong>${totalPending.toFixed(2)}</strong></span>
+        `;
+
         tbody.innerHTML = '';
-        
+
         if (accounts.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">No hay cuentas por cobrar con los filtros aplicados</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center">No hay cuentas por cobrar</td></tr>';
             return;
         }
-        
-        accounts.forEach(account => {
+
+        accounts.forEach(invoice => {
             const row = tbody.insertRow();
-            
-            // Determinar clase de fila basada en aging
-            let rowClass = '';
-            if (account.balance > 0) {
-                if (account.aging === '90+') rowClass = 'row-critical';
-                else if (account.aging === '61-90') rowClass = 'row-danger';
-                else if (account.aging === '31-60') rowClass = 'row-warning';
-            }
-            
-            row.className = rowClass;
-            
+            row.className = `status-${invoice.status}`;
             row.innerHTML = `
-                <td><strong>${account.invoiceNumber}</strong></td>
-                <td>${App.formatDate(account.fecha)}</td>
-                <td>${account.agente}</td>
-                <td>${account.ciudad}</td>
-                <td><strong>$${account.total.toFixed(2)}</strong></td>
-                <td>$${account.totalPaid.toFixed(2)}</td>
-                <td><strong style="color: ${account.balance > 0 ? '#dc3545' : '#198754'};">$${account.balance.toFixed(2)}</strong></td>
-                <td>
-                    <span class="aging-badge aging-${account.aging.replace('+', 'plus').replace('-', 'to')}">${account.daysDue} días</span>
-                </td>
-                <td><span class="status-badge status-${account.paymentStatus}">${App.getPaymentStatusText(account.paymentStatus)}</span></td>
+                <td>${App.formatDate(invoice.fecha)}</td>
+                <td><strong>${invoice.numero}</strong></td>
+                <td>${invoice.cliente}</td>
+                <td>${invoice.agente}</td>
+                <td class="text-right">${invoice.total.toFixed(2)}</td>
+                <td class="text-right">${invoice.totalPaid.toFixed(2)}</td>
+                <td class="text-right"><strong>${invoice.balance.toFixed(2)}</strong></td>
+                <td><span class="status-badge status-${invoice.status}">${App.getStatusText(invoice.status)}</span></td>
                 <td class="actions">
-                    <button class="btn btn-info btn-sm" onclick="App.viewInvoiceDetails('${account.invoiceId}')" title="Ver Factura">👁️</button>
-                    ${account.balance > 0 ? `
-                        <button class="btn btn-warning btn-sm" onclick="App.showPaymentModal('${account.invoiceId}')" title="Registrar Pago">💳</button>
-                        <button class="btn btn-secondary btn-sm" onclick="App.sendPaymentReminder('${account.invoiceId}')" title="Enviar Recordatorio">📧</button>
-                    ` : ''}
+                    <button class="btn btn-info btn-sm" onclick="App.viewInvoiceDetails('${invoice.id}')" title="Ver Detalles">👁️</button>
+                    <button class="btn btn-success btn-sm" onclick="App.showPaymentModal('${invoice.id}')" title="Registrar Pago">💳</button>
+                    <button class="btn btn-warning btn-sm" onclick="App.sendReminder('${invoice.id}')" title="Enviar Recordatorio">🔔</button>
                 </td>
             `;
         });
