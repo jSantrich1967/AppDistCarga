@@ -1,1 +1,0 @@
-Fix: Asegura el manejo de summary en cuentas por cobrar

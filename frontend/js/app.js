@@ -3199,44 +3199,56 @@ ESTADO DEL SISTEMA
     },
 
     updateAccountsReceivableUI: function(accounts, summary) {
-        const tbody = document.querySelector('#arTable tbody');
+        const tbody = document.querySelector('#accountsReceivableTable tbody');
         const summaryElement = document.getElementById('arSummary');
+
+        console.log('Debugging updateAccountsReceivableUI:');
+        console.log('tbody element:', tbody);
+        console.log('summaryElement element:', summaryElement);
 
         // Defensive coding: ensure summary and its properties exist
         const totalInvoices = summary?.totalInvoices || 0;
         const totalPending = summary?.totalPending || 0;
 
-        summaryElement.innerHTML = `
-            <span>Total Facturas: <strong>${totalInvoices}</strong></span>
-            <span>Monto Pendiente: <strong>${totalPending.toFixed(2)}</strong></span>
-        `;
-
-        tbody.innerHTML = '';
-
-        if (accounts.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center">No hay cuentas por cobrar</td></tr>';
-            return;
+        if (summaryElement) {
+            summaryElement.innerHTML = `
+                <span>Total Facturas: <strong>${totalInvoices}</strong></span>
+                <span>Monto Pendiente: <strong>${totalPending.toFixed(2)}</strong></span>
+            `;
+        } else {
+            console.error('Error: summaryElement (arSummary) not found in DOM.');
         }
 
-        accounts.forEach(invoice => {
-            const row = tbody.insertRow();
-            row.className = `status-${invoice.status}`;
-            row.innerHTML = `
-                <td>${App.formatDate(invoice.fecha)}</td>
-                <td><strong>${invoice.numero}</strong></td>
-                <td>${invoice.cliente}</td>
-                <td>${invoice.agente}</td>
-                <td class="text-right">${invoice.total.toFixed(2)}</td>
-                <td class="text-right">${invoice.totalPaid.toFixed(2)}</td>
-                <td class="text-right"><strong>${invoice.balance.toFixed(2)}</strong></td>
-                <td><span class="status-badge status-${invoice.status}">${App.getStatusText(invoice.status)}</span></td>
-                <td class="actions">
-                    <button class="btn btn-info btn-sm" onclick="App.viewInvoiceDetails('${invoice.id}')" title="Ver Detalles">👁️</button>
-                    <button class="btn btn-success btn-sm" onclick="App.showPaymentModal('${invoice.id}')" title="Registrar Pago">💳</button>
-                    <button class="btn btn-warning btn-sm" onclick="App.sendReminder('${invoice.id}')" title="Enviar Recordatorio">🔔</button>
-                </td>
-            `;
-        });
+        if (tbody) {
+            tbody.innerHTML = '';
+
+            if (accounts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center">No hay cuentas por cobrar</td></tr>';
+                return;
+            }
+
+            accounts.forEach(invoice => {
+                const row = tbody.insertRow();
+                row.className = `status-${invoice.status}`;
+                row.innerHTML = `
+                    <td>${App.formatDate(invoice.fecha)}</td>
+                    <td><strong>${invoice.numero}</strong></td>
+                    <td>${invoice.cliente}</td>
+                    <td>${invoice.agente}</td>
+                    <td class="text-right">${invoice.total.toFixed(2)}</td>
+                    <td class="text-right">${invoice.totalPaid.toFixed(2)}</td>
+                    <td class="text-right"><strong>${invoice.balance.toFixed(2)}</strong></td>
+                    <td><span class="status-badge status-${invoice.status}">${App.getStatusText(invoice.status)}</span></td>
+                    <td class="actions">
+                        <button class="btn btn-info btn-sm" onclick="App.viewInvoiceDetails('${invoice.id}')" title="Ver Detalles">👁️</button>
+                        <button class="btn btn-success btn-sm" onclick="App.showPaymentModal('${invoice.id}')" title="Registrar Pago">💳</button>
+                        <button class="btn btn-warning btn-sm" onclick="App.sendReminder('${invoice.id}')" title="Enviar Recordatorio">🔔</button>
+                    </td>
+                `;
+            });
+        } else {
+            console.error('Error: tbody (accountsReceivableTable tbody) not found in DOM.');
+        }
     },
 
     getPaymentStatusText: function(status) {
