@@ -447,10 +447,20 @@ app.post('/api/actas', authenticateToken, authorizeRoles(['admin', 'courier']),
         try {
             const newActa = {
                 id: Date.now().toString(), // ID simple para desarrollo
-                ...req.body,
+                fecha: req.body.fecha,
+                ciudad: req.body.ciudad,
+                agente: req.body.agente,
+                modeloCamion: req.body.modeloCamion || '',
+                anioCamion: req.body.anioCamion || '',
+                placaCamion: req.body.placaCamion || '',
+                nombreChofer: req.body.nombreChofer || '',
+                telefonoChofer: req.body.telefonoChofer || '',
+                nombreAyudante: req.body.nombreAyudante || '',
+                telefonoAyudante: req.body.telefonoAyudante || '',
+                guides: req.body.guides || [],
+                status: 'pending', // Agregar estado por defecto
                 createdAt: new Date(),
-                updatedAt: new Date(),
-                status: 'pending' // Agregar estado por defecto
+                updatedAt: new Date()
             };
             
             if (req.user.role === 'courier') {
