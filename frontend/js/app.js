@@ -1561,29 +1561,19 @@ const App = {
             
             // Preguntar sobre factura solo para actas nuevas
             if (!currentActa && result.id) {
-                const createInvoice = confirm(
-                    '¿Desea generar la factura automáticamente para esta acta?\n\n' +
-                    'La factura incluirá:\n' +
-                    '• Todos los datos del acta\n' +
-                    '• Detalle de las guías\n' +
-                    '• Totales calculados\n' +
-                    '• Formato profesional'
-                );
-                
-                if (createInvoice) {
-                    try {
-                        App.showLoading(true);
-                        await App.apiCall('/invoices', {
-                            method: 'POST',
-                            body: JSON.stringify({ actaId: result.id })
-                        });
-                        App.showLoading(false);
-                        Toast.success('¡Factura generada exitosamente!');
-                    } catch (invoiceError) {
-                        App.showLoading(false);
-                        console.error('Error generando factura:', invoiceError);
-                        alert('Error al generar la factura: ' + invoiceError.message);
-                    }
+                // Generar factura automáticamente sin preguntar
+                try {
+                    App.showLoading(true);
+                    await App.apiCall('/invoices', {
+                        method: 'POST',
+                        body: JSON.stringify({ actaId: result.id })
+                    });
+                    App.showLoading(false);
+                    Toast.success('¡Factura generada exitosamente!');
+                } catch (invoiceError) {
+                    App.showLoading(false);
+                    console.error('Error generando factura:', invoiceError);
+                    alert('Error al generar la factura: ' + invoiceError.message);
                 }
             }
             
