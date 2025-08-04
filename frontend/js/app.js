@@ -278,8 +278,9 @@ const App = {
                     const userData = await response2.json();
                     currentUser = userData.user;
                 } else {
-                    // Si no hay endpoint de perfil, crear un usuario temporal básico
-                    currentUser = { name: 'Usuario', role: 'admin' };
+                    // Si el perfil de usuario falla, no podemos saber el rol del usuario.
+                    // Es más seguro cerrar la sesión.
+                    throw new Error('No se pudo obtener el perfil del usuario.');
                 }
                 App.showMainScreen();
             } else {
@@ -761,7 +762,11 @@ const App = {
             }
         } catch (error) {
             console.error('Error adding agent:', error);
-            Toast.error('Error al añadir el agente');
+            if (error.message.includes('403')) {
+                Toast.error('No tienes permisos de administrador para añadir agentes.');
+            } else {
+                Toast.error('Error al añadir el agente: ' + error.message);
+            }
         } finally {
             App.showLoading(false);
         }
@@ -1582,8 +1587,10 @@ const App = {
                 }
             }
             
-            // Recargar datos
-            window.location.reload();
+            // Recargar datos de forma dinámica sin refrescar la página
+            App.loadActas();
+            App.loadDashboard();
+            App.showSection('actas');
             
         } catch (error) {
             console.error('Error saving acta:', error);

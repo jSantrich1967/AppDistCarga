@@ -1793,7 +1793,7 @@ app.get('/api/agents', authenticateToken, async (req, res) => {
     }
 });
 
-app.post('/api/agents', authenticateToken, authorizeRoles(['admin']),
+app.post('/api/agents', authenticateToken,
     body('name').notEmpty().withMessage('El nombre del agente es requerido'),
     async (req, res) => {
         const errors = validationResult(req);
