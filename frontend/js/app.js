@@ -1529,9 +1529,9 @@ const App = {
             
             // Validar que la guía tenga al menos cliente (campo obligatorio)
             if (guide.cliente && guide.cliente.trim()) {
-                // Calcular subtotal usando los nuevos campos
+                // Calcular subtotal y añadirlo a la guía
                 guide.subtotal = App.calculateSubtotal(guide.piesCubicos || 0, actaData.ciudad);
-                
+
                 // Asegurar status por defecto
                 guide.status = guide.status || 'En Almacén';
                 guide.createdAt = new Date();
