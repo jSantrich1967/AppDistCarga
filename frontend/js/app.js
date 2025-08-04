@@ -1832,8 +1832,8 @@ FACTURA ${invoice.number}
 • Términos de pago: ${invoice.paymentTerms}
 
 💰 TOTALES:
-• Subtotal: $${invoice.subtotal.toFixed(2)}
-• TOTAL (Exento de IVA): $${invoice.total.toFixed(2)}
+• Subtotal: ${(invoice.subtotal || 0).toFixed(2)}
+• TOTAL (Exento de IVA): ${(invoice.total || 0).toFixed(2)}
 
 📋 DETALLE DE GUÍAS:
 ${guidesInfo}
