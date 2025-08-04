@@ -4415,14 +4415,22 @@ ESTADO DEL SISTEMA
     },
 
     getStatusText: function(status) {
+        if (!status) return 'Sin Estado';
         const statusMap = {
-            'draft': 'Borrador',
             'pending': 'Pendiente',
-            'partial': 'Parcial',
-            'paid': 'Pagada'
+            'processing': 'Procesando',
+            'completed': 'Completada',
+            'paid': 'Pagada',
+            'partial': 'Pago Parcial',
+            'overdue': 'Vencida',
+            'almacen': 'En Almacén',
+            'lista_despacho': 'Lista Despacho',
+            'en_despacho': 'En Despacho',
+            'despachada': 'Despachada',
+            'completado': 'Completado'
         };
-        return statusMap[status] || status.charAt(0).toUpperCase() + status.slice(1);
-    }
+        return statusMap[status] || status;
+    },
 };
 
 // Exponer App al objeto window para que los handlers onclick en el HTML puedan encontrarlo.
