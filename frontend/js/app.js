@@ -1752,6 +1752,7 @@ const App = {
     loadInvoices: async function() {
         try {
             const invoices = await App.apiCall('/invoices');
+            console.log('🧾 Datos de facturas recibidos del servidor:', JSON.stringify(invoices, null, 2));
             App.updateInvoicesTable(invoices);
         } catch (error) {
             console.error('Error loading invoices:', error);
