@@ -1763,22 +1763,26 @@ const App = {
         tbody.innerHTML = '';
         
         if (invoices.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No hay facturas registradas</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">No hay facturas registradas</td></tr>';
             return;
         }
         
         invoices.forEach(invoice => {
+            const total = parseFloat(invoice.total) || 0;
+            const status = invoice.status || 'pending'; // Default a un estado conocido
+            const number = invoice.number || invoice.id || 'N/A'; // Fallback para el número
+
             const row = tbody.insertRow();
             row.innerHTML = `
-                <td><strong>${invoice.number}</strong></td>
+                <td><strong>${number}</strong></td>
                 <td>${App.formatDate(invoice.createdAt)}</td>
                 <td>${invoice.ciudad || '-'}</td>
                 <td>${invoice.numGuides || 0} guías</td>
-                <td><strong>$${invoice.total.toFixed(2)}</strong></td>
-                <td><span class="status-badge status-${invoice.status}">${App.getStatusText(invoice.status)}</span></td>
+                <td><strong>${total.toFixed(2)}</strong></td>
+                <td><span class="status-badge status-${status}">${App.getStatusText(status)}</span></td>
                 <td class="actions">
                     <button class="btn btn-info btn-sm" onclick="App.viewInvoiceDetails('${invoice.id}')" title="Ver Detalles">👁️</button>
-                    <button class="btn btn-primary btn-sm" onclick="App.showPaymentModal('${invoice.id}')" ${invoice.status === 'paid' ? 'disabled' : ''} title="Pagar">💳</button>
+                    <button class="btn btn-primary btn-sm" onclick="App.showPaymentModal('${invoice.id}')" ${status === 'paid' ? 'disabled' : ''} title="Pagar">💳</button>
                     <button class="btn btn-secondary btn-sm" onclick="App.printInvoice('${invoice.id}')" title="Imprimir">🖨️</button>
                 </td>
             `;
