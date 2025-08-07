@@ -607,9 +607,13 @@ const App = {
             // Actualizar estadísticas básicas
             document.getElementById('totalActas').textContent = stats.totalActas;
             document.getElementById('totalInvoices').textContent = stats.totalInvoices;
-            document.getElementById('totalBilled').textContent = `Bs. ${stats.totalBilled.toFixed(2)}`;
-            document.getElementById('totalCollected').textContent = `Bs. ${stats.totalCollected.toFixed(2)}`;
-            document.getElementById('pendingBalance').textContent = `Bs. ${stats.pendingBalance.toFixed(2)}`;
+            const totalBilled = stats.totalBilled || 0;
+            const totalCollected = stats.totalCollected || 0;
+            const pendingBalance = stats.pendingBalance || 0;
+
+            document.getElementById('totalBilled').textContent = `Bs. ${totalBilled.toFixed(2)}`;
+            document.getElementById('totalCollected').textContent = `Bs. ${totalCollected.toFixed(2)}`;
+            document.getElementById('pendingBalance').textContent = `Bs. ${pendingBalance.toFixed(2)}`;
             
             // Actualizar títulos según el rol
             App.updateDashboardTitles(stats.userRole);
