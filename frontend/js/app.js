@@ -1771,7 +1771,7 @@ const App = {
         invoices.forEach(invoice => {
             const total = parseFloat(invoice.total) || 0;
             const status = invoice.status || 'pending'; // Default a un estado conocido
-            const number = invoice.number || invoice.id || 'N/A'; // Fallback para el número
+            const number = invoice.numero || invoice.id || 'N/A'; // Fallback para el número
 
             const row = tbody.insertRow();
             row.innerHTML = `

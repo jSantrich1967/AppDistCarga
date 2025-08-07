@@ -611,16 +611,21 @@ app.post('/api/invoices', authenticateToken, authorizeRoles(['admin', 'courier']
             }
             
             // Calcular totales (sin IVA)
-            const subtotal = acta.guides ? acta.guides.reduce((sum, guide) => sum + (parseFloat(guide.subtotal) || 0), 0) : 0;
+            const cityRates = db.cityRates || {};
+            const rate = cityRates[acta.ciudad] || 0;
+            const subtotal = acta.guides ? acta.guides.reduce((sum, guide) => {
+                const guideSubtotal = (parseFloat(guide.piesCubicos) || 0) * rate;
+                return sum + guideSubtotal;
+            }, 0) : 0;
             const total = subtotal; // Total igual al subtotal (sin IVA)
             
             // Generar número de factura
-            const invoiceNumber = `INV-${Date.now()}`;
+            const invoiceNumber = `FAC-${Date.now()}`;
             
             // Crear factura con formato profesional
             const newInvoice = {
                 id: Date.now().toString(),
-                number: invoiceNumber,
+                numero: invoiceNumber, // Corregido a 'numero'
                 actaId: actaId,
                 
                 // Información del acta
