@@ -436,7 +436,8 @@ app.post('/api/actas', authenticateToken, authorizeRoles(['admin', 'courier']),
     body('ciudad').notEmpty(),
     body('agente').notEmpty(),
     async (req, res) => {
-        console.log('📝 POST /api/actas - Recibido:', req.body);
+        console.log('📝 POST /api/actas - Recibido:', JSON.stringify(req.body, null, 2));
+        console.log('📝 POST /api/actas - Guías recibidas en req.body:', req.body.guides ? req.body.guides.length : 0);
         
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -592,9 +593,10 @@ app.post('/api/invoices', authenticateToken, authorizeRoles(['admin', 'courier']
         
         try {
             const { actaId } = req.body;
-            
+
             // Verificar que el acta existe
             const acta = db.actas.find(a => a.id === actaId);
+            console.log(`🧾 POST /api/invoices - Acta recuperada para factura (${actaId}):`, acta ? `Guías: ${acta.guides?.length || 0}` : 'Acta no encontrada');
             if (!acta) {
                 return res.status(404).json({ error: 'Acta no encontrada' });
             }

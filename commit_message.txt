@@ -1,1 +1,1 @@
-Debug: Añade log para depurar datos de facturas
+Fix: Corrige el cálculo del total de la factura y el nombre del campo del número
