@@ -373,38 +373,66 @@ app.get('/api/invoices', authenticateToken, (req, res) => {
 app.post('/api/invoices', authenticateToken, (req, res) => {
     try {
         const { actaId, ciudad } = req.body;
-        
+
         const acta = db.actas.find(a => a.id === actaId);
         if (!acta) {
             return res.status(404).json({ error: 'Acta no encontrada' });
         }
-        
+
         // Verificar permisos
         if (req.user.role === 'courier' && acta.courierId !== req.user.id) {
             return res.status(403).json({ error: 'Acceso denegado' });
         }
-        
+
+        // Calcular subtotal/total de forma robusta
+        const guides = acta.guides || acta.guias || [];
+        const cityRates = db.cityRates || {};
+        const usedCity = ciudad || acta.ciudad;
+        const rate = cityRates[usedCity] || 0;
+
+        const subtotal = guides.reduce((sum, guide) => {
+            const guideSubtotal = parseFloat(guide.subtotal);
+            if (!isNaN(guideSubtotal)) {
+                return sum + guideSubtotal;
+            }
+            const pies = parseFloat(
+                guide.piesCubicos !== undefined ? guide.piesCubicos : guide.pies
+            ) || 0;
+            return sum + pies * rate;
+        }, 0);
+        const total = subtotal; // exento de IVA
+
+        const invoiceId = Date.now().toString();
+        const invoiceNumber = `FAC-${invoiceId}`;
+
         const newInvoice = {
-            id: Date.now().toString(),
+            id: invoiceId,
             actaId: actaId,
-            numero: `FAC-${Date.now()}`,
+            numero: invoiceNumber,
+            number: invoiceNumber, // compatibilidad con frontend
             fecha: new Date().toISOString().split('T')[0],
-            ciudad: ciudad || acta.ciudad,
+            ciudad: usedCity,
             agente: acta.agente,
-            guias: acta.guias || [],
-            subtotal: acta.total || 0,
-            total: acta.total || 0,
+            guides: guides,
+            numGuides: guides.length,
+            subtotal: subtotal,
+            total: total,
             courierId: acta.courierId,
-            createdAt: new Date().toISOString()
+            status: 'pending',
+            currency: 'USD',
+            paymentTerms: '30 días',
+            notes: `Factura generada automáticamente para el Acta ${acta.id} | Exenta de IVA`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
         };
-        
+
         if (!db.invoices) {
             db.invoices = [];
         }
-        
+
         db.invoices.push(newInvoice);
         saveDatabase();
-        
+
         res.status(201).json(newInvoice);
     } catch (error) {
         console.error('Error creando factura:', error);
