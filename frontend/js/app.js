@@ -2361,6 +2361,16 @@ ${App.formatDate(payment.createdAt)}
                 invoice.total ?? invoice.subtotal ?? 0
             ) || 0;
 
+            // Preparar cliente mostrado (primer cliente de las guías si existe)
+            let customerName = '-';
+            if (Array.isArray(invoice.guides) && invoice.guides.length > 0) {
+                const g = invoice.guides[0];
+                customerName = g.nombreCliente || g.cliente || '-';
+            } else if (Array.isArray(invoice.guias) && invoice.guias.length > 0) {
+                const g = invoice.guias[0];
+                customerName = g.nombreCliente || g.cliente || '-';
+            }
+
             // Mostrar información de la factura
             const invoiceInfoDiv = document.getElementById('paymentInvoiceInfo');
             invoiceInfoDiv.innerHTML = `
@@ -2370,6 +2380,7 @@ ${App.formatDate(payment.createdAt)}
                     <div><strong>Fecha:</strong> ${App.formatDate(invoice.fecha)}</div>
                     <div><strong>Ciudad:</strong> ${invoice.ciudad || '-'}</div>
                     <div><strong>Agente:</strong> ${invoice.agente || '-'}</div>
+                    <div><strong>Cliente:</strong> ${customerName}</div>
                     <div><strong>Total a pagar:</strong> <span style="color: #d63384; font-weight: bold;">$${totalAmount.toFixed(2)}</span></div>
                     <div><strong>Estado:</strong> ${App.getStatusText(invoice.status || 'pending')}</div>
                 </div>

@@ -370,6 +370,29 @@ app.get('/api/invoices', authenticateToken, (req, res) => {
     }
 });
 
+// Obtener una factura por id
+app.get('/api/invoices/:id', authenticateToken, (req, res) => {
+    try {
+        const invoice = (db.invoices || []).find(inv => inv.id === req.params.id);
+        if (!invoice) {
+            return res.status(404).json({ error: 'Factura no encontrada' });
+        }
+
+        // Verificar permisos
+        if (req.user.role === 'courier') {
+            const acta = (db.actas || []).find(a => a.id === invoice.actaId);
+            if (acta && acta.courierId !== req.user.id) {
+                return res.status(403).json({ error: 'Acceso denegado' });
+            }
+        }
+
+        res.json(invoice);
+    } catch (error) {
+        console.error('Error obteniendo factura:', error);
+        res.status(500).json({ error: 'Error obteniendo factura' });
+    }
+});
+
 app.post('/api/invoices', authenticateToken, (req, res) => {
     try {
         const { actaId, ciudad } = req.body;
@@ -509,6 +532,32 @@ app.post('/api/payments', authenticateToken, (req, res) => {
     } catch (error) {
         console.error('Error creando pago:', error);
         res.status(500).json({ error: 'Error creando pago' });
+    }
+});
+
+// Obtener un pago por id
+app.get('/api/payments/:id', authenticateToken, (req, res) => {
+    try {
+        const payment = (db.payments || []).find(p => p.id === req.params.id);
+        if (!payment) {
+            return res.status(404).json({ error: 'Pago no encontrado' });
+        }
+
+        // Verificar permisos
+        if (req.user.role === 'courier') {
+            const invoice = (db.invoices || []).find(inv => inv.id === payment.invoiceId);
+            if (invoice) {
+                const acta = (db.actas || []).find(a => a.id === invoice.actaId);
+                if (acta && acta.courierId !== req.user.id) {
+                    return res.status(403).json({ error: 'Acceso denegado' });
+                }
+            }
+        }
+
+        res.json(payment);
+    } catch (error) {
+        console.error('Error obteniendo pago:', error);
+        res.status(500).json({ error: 'Error obteniendo pago' });
     }
 });
 
