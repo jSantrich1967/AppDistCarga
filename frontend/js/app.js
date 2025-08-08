@@ -939,7 +939,7 @@ const App = {
             filteredActas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
             // Actualizar tabla
-            App.updateActasTableSimple(filteredActas);
+            App.updateActasTable(filteredActas);
             
             // Mostrar contador
             const counter = document.getElementById('actasCounter');

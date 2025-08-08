@@ -1,1 +1,1 @@
-Debug: Añade log general de solicitudes en backend
+Feature: Elimina la generación automática de facturas
