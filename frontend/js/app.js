@@ -1808,8 +1808,12 @@ const App = {
                 guidesInfo = 'No hay guías registradas';
             }
             
+            const safeInvoiceNumber = invoice.numero || invoice.number || invoice.id || 'N/A';
+            const safeSubtotal = parseFloat(invoice.subtotal ?? 0) || 0;
+            const safeTotal = parseFloat((invoice.total ?? invoice.subtotal) ?? 0) || 0;
+
             const details = `
-FACTURA ${invoice.number}
+FACTURA ${safeInvoiceNumber}
 ========================
 
 📋 INFORMACIÓN GENERAL:
@@ -1830,8 +1834,8 @@ FACTURA ${invoice.number}
 • Términos de pago: ${invoice.paymentTerms}
 
 💰 TOTALES:
-• Subtotal: ${(invoice.subtotal || 0).toFixed(2)}
-• TOTAL (Exento de IVA): ${(invoice.total || 0).toFixed(2)}
+• Subtotal: ${safeSubtotal.toFixed(2)}
+• TOTAL (Exento de IVA): ${safeTotal.toFixed(2)}
 
 📋 DETALLE DE GUÍAS:
 ${guidesInfo}
@@ -2321,24 +2325,30 @@ ${App.formatDate(payment.createdAt)}
         document.getElementById('paymentInvoiceId').value = invoiceId;
         document.getElementById('paymentForm').reset();
             
+            // Normalizar campos por compatibilidad
+            const invoiceNumber = invoice.numero || invoice.number || invoice.id || 'N/A';
+            const totalAmount = parseFloat(
+                invoice.total ?? invoice.subtotal ?? 0
+            ) || 0;
+
             // Mostrar información de la factura
             const invoiceInfoDiv = document.getElementById('paymentInvoiceInfo');
             invoiceInfoDiv.innerHTML = `
                 <h4>🧾 Información de la Factura</h4>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
-                    <div><strong>Número:</strong> ${invoice.number}</div>
+                    <div><strong>Número:</strong> ${invoiceNumber}</div>
                     <div><strong>Fecha:</strong> ${App.formatDate(invoice.fecha)}</div>
-                    <div><strong>Ciudad:</strong> ${invoice.ciudad}</div>
-                    <div><strong>Agente:</strong> ${invoice.agente}</div>
-                    <div><strong>Total a pagar:</strong> <span style="color: #d63384; font-weight: bold;">$${invoice.total.toFixed(2)}</span></div>
-                    <div><strong>Estado:</strong> ${App.getStatusText(invoice.status)}</div>
+                    <div><strong>Ciudad:</strong> ${invoice.ciudad || '-'}</div>
+                    <div><strong>Agente:</strong> ${invoice.agente || '-'}</div>
+                    <div><strong>Total a pagar:</strong> <span style="color: #d63384; font-weight: bold;">$${totalAmount.toFixed(2)}</span></div>
+                    <div><strong>Estado:</strong> ${App.getStatusText(invoice.status || 'pending')}</div>
                 </div>
             `;
             
             // Establecer valores por defecto
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('paymentDate').value = today;
-            document.getElementById('paymentAmount').value = invoice.total.toFixed(2);
+            document.getElementById('paymentAmount').value = totalAmount.toFixed(2);
             
             // Pre-seleccionar concepto por defecto
             const conceptSelect = document.getElementById('paymentConcept');
