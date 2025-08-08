@@ -1,1 +1,1 @@
-Debug: Añade logs para rastrear guías en backend
+Debug: Añade log general de solicitudes en backend

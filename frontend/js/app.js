@@ -1563,24 +1563,6 @@ const App = {
             const message = currentActa ? 'Acta actualizada exitosamente' : 'Acta creada exitosamente';
             alert(message);
             
-            // Preguntar sobre factura solo para actas nuevas
-            if (!currentActa && result.id) {
-                // Generar factura automáticamente sin preguntar
-                try {
-                    App.showLoading(true);
-                    await App.apiCall('/invoices', {
-                        method: 'POST',
-                        body: JSON.stringify({ actaId: result.id })
-                    });
-                    App.showLoading(false);
-                    Toast.success('¡Factura generada exitosamente!');
-                } catch (invoiceError) {
-                    App.showLoading(false);
-                    console.error('Error generando factura:', invoiceError);
-                    alert('Error al generar la factura: ' + invoiceError.message);
-                }
-            }
-            
             // Recargar datos de forma dinámica sin refrescar la página
             App.loadActas();
             App.loadDashboard();
