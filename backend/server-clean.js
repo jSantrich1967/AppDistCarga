@@ -250,6 +250,22 @@ app.get('/api/actas', authenticateToken, (req, res) => {
         // Filtrar por rol
         if (req.user.role === 'courier') {
             actas = actas.filter(acta => acta.courierId === req.user.id);
+        } else if (req.user.role === 'agent') {
+            // Agente: solo actas propias por coincidencia de agente
+            actas = actas.filter(acta => (acta.agenteId && acta.agenteId === req.user.id) || (acta.agente && (acta.agente === req.user.username || acta.agente === req.user.fullName)));
+        } else if (req.user.role === 'client') {
+            // Cliente: solo actas que contengan guías del cliente y filtrar sus guías
+            const clientNames = [req.user.fullName, req.user.username].filter(Boolean).map(n => (n || '').toString().trim().toLowerCase());
+            actas = actas
+                .map(acta => {
+                    const guides = (acta.guides || acta.guias || []).filter(g => {
+                        const name = (g.nombreCliente || g.cliente || '').toString().trim().toLowerCase();
+                        return clientNames.includes(name);
+                    });
+                    if (guides.length === 0) return null;
+                    return { ...acta, guides, guias: undefined };
+                })
+                .filter(Boolean);
         }
         
         res.json(actas);
@@ -361,6 +377,20 @@ app.get('/api/invoices', authenticateToken, (req, res) => {
         // Filtrar por rol
         if (req.user.role === 'courier') {
             invoices = invoices.filter(invoice => invoice.courierId === req.user.id);
+        } else if (req.user.role === 'agent') {
+            invoices = invoices.filter(inv => (inv.agenteId && inv.agenteId === req.user.id) || (inv.agente && (inv.agente === req.user.username || inv.agente === req.user.fullName)));
+        } else if (req.user.role === 'client') {
+            const clientNames = [req.user.fullName, req.user.username].filter(Boolean).map(n => (n || '').toString().trim().toLowerCase());
+            invoices = invoices
+                .map(inv => {
+                    const guides = (inv.guides || inv.guias || []).filter(g => {
+                        const name = (g.nombreCliente || g.cliente || '').toString().trim().toLowerCase();
+                        return clientNames.includes(name);
+                    });
+                    if (guides.length === 0) return null;
+                    return { ...inv, guides, guias: undefined, numGuides: guides.length };
+                })
+                .filter(Boolean);
         }
         
         res.json(invoices);
@@ -639,7 +669,8 @@ app.get('/api/dashboard', authenticateToken, (req, res) => {
             totalPayments,
             totalRevenue,
             totalBilled,
-            totalCollected
+            totalCollected,
+            userRole: req.user.role
         });
     } catch (error) {
         console.error('Error obteniendo dashboard:', error);
@@ -656,6 +687,20 @@ app.get('/api/accounts-receivable', authenticateToken, (req, res) => {
         // Filtrar por rol
         if (req.user.role === 'courier') {
             invoices = invoices.filter(invoice => invoice.courierId === req.user.id);
+        } else if (req.user.role === 'agent') {
+            invoices = invoices.filter(inv => (inv.agenteId && inv.agenteId === req.user.id) || (inv.agente && (inv.agente === req.user.username || inv.agente === req.user.fullName)));
+        } else if (req.user.role === 'client') {
+            const clientNames = [req.user.fullName, req.user.username].filter(Boolean).map(n => (n || '').toString().trim().toLowerCase());
+            invoices = invoices
+                .map(inv => {
+                    const guides = (inv.guides || inv.guias || []).filter(g => {
+                        const name = (g.nombreCliente || g.cliente || '').toString().trim().toLowerCase();
+                        return clientNames.includes(name);
+                    });
+                    if (guides.length === 0) return null;
+                    return { ...inv, guides, guias: undefined, numGuides: guides.length };
+                })
+                .filter(Boolean);
         }
         
         const accountsReceivable = invoices.map(invoice => {
