@@ -489,12 +489,67 @@ app.post('/api/payments', authenticateToken, (req, res) => {
         }
         
         db.payments.push(newPayment);
+
+        // Recalcular estado de la factura con pagos completados
+        const totalPaid = db.payments
+            .filter(p => p.invoiceId === invoiceId && p.estado === 'completado')
+            .reduce((sum, p) => sum + (p.monto || 0), 0);
+        if (totalPaid <= 0) {
+            invoice.status = 'pending';
+        } else if (totalPaid < invoice.total) {
+            invoice.status = 'partial';
+        } else {
+            invoice.status = 'paid';
+        }
+        invoice.updatedAt = new Date().toISOString();
+
         saveDatabase();
         
         res.status(201).json(newPayment);
     } catch (error) {
         console.error('Error creando pago:', error);
         res.status(500).json({ error: 'Error creando pago' });
+    }
+});
+
+// Anular pago (solo admin)
+app.put('/api/payments/:id/void', authenticateToken, authorizeRoles(['admin']), (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body || {};
+
+        const payment = (db.payments || []).find(p => p.id === id);
+        if (!payment) {
+            return res.status(404).json({ error: 'Pago no encontrado' });
+        }
+
+        // Marcar pago como anulado
+        payment.estado = 'anulado';
+        payment.voidReason = reason || 'Anulado por administrador';
+        payment.voidedAt = new Date().toISOString();
+
+        // Recalcular estado de la factura asociada considerando solo pagos completados
+        const invoice = (db.invoices || []).find(inv => inv.id === payment.invoiceId);
+        if (invoice) {
+            const totalPaid = (db.payments || [])
+                .filter(p => p.invoiceId === invoice.id && p.estado === 'completado')
+                .reduce((sum, p) => sum + (p.monto || 0), 0);
+
+            if (totalPaid <= 0) {
+                invoice.status = 'pending';
+            } else if (totalPaid < invoice.total) {
+                invoice.status = 'partial';
+            } else {
+                invoice.status = 'paid';
+            }
+            invoice.updatedAt = new Date().toISOString();
+        }
+
+        saveDatabase();
+        res.json({ success: true, payment });
+    } catch (error) {
+        console.error('Error anulando pago:', error);
+        res.status(500).json({ error: 'Error anulando pago' });
     }
 });
 
@@ -542,7 +597,7 @@ app.get('/api/accounts-receivable', authenticateToken, (req, res) => {
         
         const accountsReceivable = invoices.map(invoice => {
             const totalPaid = payments
-                .filter(payment => payment.invoiceId === invoice.id)
+                .filter(payment => payment.invoiceId === invoice.id && payment.estado === 'completado')
                 .reduce((sum, payment) => sum + payment.monto, 0);
             
             const balance = invoice.total - totalPaid;

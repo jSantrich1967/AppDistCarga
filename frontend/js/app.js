@@ -2311,9 +2311,36 @@ ${App.formatDate(payment.createdAt)}
                 <td class="actions">
                     <button class="btn btn-info btn-sm" onclick="App.viewPaymentDetails('${payment.id}')" title="Ver Detalles">👁️</button>
                     <button class="btn btn-secondary btn-sm" onclick="App.printPaymentReceipt('${payment.id}')" title="Imprimir Recibo">🧾</button>
+                    ${estado !== 'anulado' ? `<button class="btn btn-danger btn-sm" onclick="App.voidPayment('${payment.id}')" title="Anular Pago">⛔</button>` : ''}
                 </td>
             `;
         });
+    },
+
+    voidPayment: async function(paymentId) {
+        try {
+            const confirmed = confirm('¿Desea anular este pago? Esta acción actualizará el estado de la factura.');
+            if (!confirmed) return;
+
+            const reason = prompt('Motivo de anulación (opcional):', 'Anulado por error de registro');
+
+            await App.apiCall(`/payments/${paymentId}/void`, {
+                method: 'PUT',
+                body: JSON.stringify({ reason })
+            });
+
+            Toast.success('Pago anulado correctamente');
+            // Recargar listas y estadísticas
+            App.loadPayments();
+            App.loadInvoices();
+            if (typeof App.loadAccountsReceivable === 'function') {
+                App.loadAccountsReceivable();
+            }
+            App.loadDashboard();
+        } catch (error) {
+            console.error('Error voiding payment:', error);
+            alert('Error al anular el pago: ' + error.message);
+        }
     },
 
     showPaymentModal: async function(invoiceId) {
