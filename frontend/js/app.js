@@ -1890,6 +1890,9 @@ ${invoice.notes}
     },
 
     generateInvoiceHTML: function(invoice) {
+        const safeInvoiceNumber = invoice.numero || invoice.number || invoice.id || 'N/A';
+        const safeSubtotal = parseFloat(invoice.subtotal ?? 0) || 0;
+        const safeTotal = parseFloat((invoice.total ?? invoice.subtotal) ?? 0) || 0;
         // Generar filas de guías
         let guidesHTML = '';
         if (invoice.guides && invoice.guides.length > 0) {
@@ -1916,7 +1919,7 @@ ${invoice.notes}
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Factura ${invoice.number}</title>
+    <title>Factura ${safeInvoiceNumber}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -2066,7 +2069,7 @@ ${invoice.notes}
                 </div>
             </div>
             <div class="invoice-info">
-                <div class="invoice-number">FACTURA ${invoice.number}</div>
+                <div class="invoice-number">FACTURA ${safeInvoiceNumber}</div>
                 <div class="invoice-details">
                     <strong>Fecha:</strong> ${App.formatDate(invoice.fecha)}<br>
                     <strong>Estado:</strong> <span class="status-badge status-${invoice.status}">${App.getStatusText(invoice.status)}</span><br>
@@ -2126,11 +2129,11 @@ ${invoice.notes}
              <table class="totals-table">
                  <tr>
                      <td>Subtotal:</td>
-                     <td style="text-align: right;">$${invoice.subtotal.toFixed(2)}</td>
+                     <td style="text-align: right;">$${safeSubtotal.toFixed(2)}</td>
                  </tr>
                  <tr class="total-row">
                      <td>TOTAL (Exento de IVA):</td>
-                     <td style="text-align: right;">$${invoice.total.toFixed(2)}</td>
+                     <td style="text-align: right;">$${safeTotal.toFixed(2)}</td>
                  </tr>
              </table>
          </div>
