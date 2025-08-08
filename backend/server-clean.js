@@ -254,7 +254,7 @@ app.get('/api/actas', authenticateToken, (req, res) => {
             // Agente: solo actas propias por coincidencia de agente
             actas = actas.filter(acta => (acta.agenteId && acta.agenteId === req.user.id) || (acta.agente && (acta.agente === req.user.username || acta.agente === req.user.fullName)));
         } else if (req.user.role === 'client') {
-            // Cliente: solo actas que contengan guías del cliente y filtrar sus guías
+            // Cliente: solo actas que contengan guías del cliente y devolver SOLO estatus de sus guías
             const clientNames = [req.user.fullName, req.user.username].filter(Boolean).map(n => (n || '').toString().trim().toLowerCase());
             actas = actas
                 .map(acta => {
@@ -263,7 +263,18 @@ app.get('/api/actas', authenticateToken, (req, res) => {
                         return clientNames.includes(name);
                     });
                     if (guides.length === 0) return null;
-                    return { ...acta, guides, guias: undefined };
+                    // Proyección mínima para cliente: id del acta, fecha y estado de sus guías
+                    const minimalGuides = guides.map(g => ({
+                        noGuia: g.noGuia,
+                        status: g.status || 'almacen',
+                        statusHistory: g.statusHistory || []
+                    }));
+                    return {
+                        id: acta.id,
+                        fecha: acta.fecha,
+                        ciudad: acta.ciudad,
+                        guides: minimalGuides
+                    };
                 })
                 .filter(Boolean);
         }
@@ -380,17 +391,8 @@ app.get('/api/invoices', authenticateToken, (req, res) => {
         } else if (req.user.role === 'agent') {
             invoices = invoices.filter(inv => (inv.agenteId && inv.agenteId === req.user.id) || (inv.agente && (inv.agente === req.user.username || inv.agente === req.user.fullName)));
         } else if (req.user.role === 'client') {
-            const clientNames = [req.user.fullName, req.user.username].filter(Boolean).map(n => (n || '').toString().trim().toLowerCase());
-            invoices = invoices
-                .map(inv => {
-                    const guides = (inv.guides || inv.guias || []).filter(g => {
-                        const name = (g.nombreCliente || g.cliente || '').toString().trim().toLowerCase();
-                        return clientNames.includes(name);
-                    });
-                    if (guides.length === 0) return null;
-                    return { ...inv, guides, guias: undefined, numGuides: guides.length };
-                })
-                .filter(Boolean);
+            // Cliente: NO ver facturas completas; responder vacío para no exponer montos
+            invoices = [];
         }
         
         res.json(invoices);
@@ -414,6 +416,20 @@ app.get('/api/invoices/:id', authenticateToken, (req, res) => {
             if (acta && acta.courierId !== req.user.id) {
                 return res.status(403).json({ error: 'Acceso denegado' });
             }
+        } else if (req.user.role === 'client') {
+            // Cliente: devolver sólo información mínima de estatus de sus guías
+            const clientNames = [req.user.fullName, req.user.username].filter(Boolean).map(n => (n || '').toString().trim().toLowerCase());
+            const guides = (invoice.guides || invoice.guias || []).filter(g => {
+                const name = (g.nombreCliente || g.cliente || '').toString().trim().toLowerCase();
+                return clientNames.includes(name);
+            });
+            const minimal = {
+                id: invoice.id,
+                fecha: invoice.fecha,
+                ciudad: invoice.ciudad,
+                guides: guides.map(g => ({ noGuia: g.noGuia, status: g.status || 'almacen', statusHistory: g.statusHistory || [] }))
+            };
+            return res.json(minimal);
         }
 
         res.json(invoice);
