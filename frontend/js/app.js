@@ -1774,13 +1774,20 @@ const App = {
 
     generateInvoice: async function(actaId) {
         try {
-            await App.apiCall('/invoices', {
+            const invoice = await App.apiCall('/invoices', {
                 method: 'POST',
                 body: JSON.stringify({ actaId })
             });
+            // Refrescar vistas relacionadas
             App.loadInvoices();
             App.loadDashboard();
-            alert('Factura generada exitosamente');
+            if (typeof App.loadAccountsReceivable === 'function') {
+                App.loadAccountsReceivable();
+            }
+            // Mostrar total de la factura generada
+            const invoiceNumber = invoice.numero || invoice.number || invoice.id || 'N/A';
+            const totalAmount = parseFloat(invoice.total || 0);
+            alert(`✅ Factura generada: ${invoiceNumber}\nTotal: $${totalAmount.toFixed(2)}`);
         } catch (error) {
             console.error('Error generating invoice:', error);
             alert(`Error al generar factura: ${error.message}`);
