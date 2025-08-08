@@ -1,1 +1,1 @@
-Fix: Corrige el cálculo del total de la factura y el nombre del campo del número
+Debug: Añade logs para rastrear guías en backend
