@@ -559,24 +559,38 @@ app.get('/api/dashboard', authenticateToken, (req, res) => {
         let actas = db.actas || [];
         let invoices = db.invoices || [];
         let payments = db.payments || [];
-        
+
         // Filtrar por rol
         if (req.user.role === 'courier') {
             actas = actas.filter(acta => acta.courierId === req.user.id);
             invoices = invoices.filter(invoice => invoice.courierId === req.user.id);
-            payments = payments.filter(payment => payment.courierId === req.user.id);
+            payments = payments.filter(payment => {
+                const inv = (db.invoices || []).find(i => i.id === payment.invoiceId);
+                return inv ? inv.courierId === req.user.id : false;
+            });
         }
-        
+
         const totalActas = actas.length;
         const totalInvoices = invoices.length;
+
+        // Solo pagos completados para montos cobrados
+        const completedPayments = payments.filter(p => p.estado === 'completado');
+        const totalCollected = completedPayments.reduce((sum, p) => sum + (parseFloat(p.monto) || 0), 0);
+
+        // Total facturado = suma de totales de facturas
+        const totalBilled = invoices.reduce((sum, inv) => sum + (parseFloat(inv.total ?? inv.subtotal ?? 0) || 0), 0);
+
+        // Mantener métricas previas para compatibilidad
         const totalPayments = payments.length;
-        const totalRevenue = payments.reduce((sum, payment) => sum + (payment.monto || 0), 0);
-        
+        const totalRevenue = totalCollected;
+
         res.json({
             totalActas,
             totalInvoices,
             totalPayments,
-            totalRevenue
+            totalRevenue,
+            totalBilled,
+            totalCollected
         });
     } catch (error) {
         console.error('Error obteniendo dashboard:', error);
