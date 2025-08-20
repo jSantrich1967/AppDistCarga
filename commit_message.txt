@@ -1,1 +1,0 @@
-Fix: Muestra el botón de generar factura en la tabla de actas

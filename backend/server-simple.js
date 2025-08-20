@@ -437,7 +437,7 @@ app.get('/api/actas', authenticateToken, async (req, res) => {
     }
 });
 
-app.post('/api/actas', authenticateToken, authorizeRoles(['admin', 'courier']),
+app.post('/api/actas', authenticateToken, authorizeRoles(['admin']),
     body('fecha').isISO8601(),
     body('ciudad').notEmpty(),
     body('agente').notEmpty(),
@@ -509,7 +509,7 @@ app.get('/api/actas/:id', authenticateToken, async (req, res) => {
     }
 });
 
-app.put('/api/actas/:id', authenticateToken, authorizeRoles(['admin', 'courier']),
+app.put('/api/actas/:id', authenticateToken, authorizeRoles(['admin']),
     body('fecha').isISO8601(),
     body('ciudad').notEmpty(),
     body('agente').notEmpty(),
@@ -589,7 +589,7 @@ app.get('/api/invoices', authenticateToken, async (req, res) => {
     }
 });
 
-app.post('/api/invoices', authenticateToken, authorizeRoles(['admin', 'courier']),
+app.post('/api/invoices', authenticateToken, authorizeRoles(['admin']),
     body('actaId').notEmpty().withMessage('El ID del acta es requerido'),
     async (req, res) => {
         const errors = validationResult(req);
@@ -726,7 +726,7 @@ app.get('/api/payments', authenticateToken, async (req, res) => {
     }
 });
 
-app.post('/api/payments', authenticateToken, authorizeRoles(['admin', 'courier']),
+app.post('/api/payments', authenticateToken, authorizeRoles(['admin']),
     body('invoiceId').notEmpty().withMessage('El ID de la factura es requerido'),
     body('fecha').isISO8601().withMessage('La fecha debe ser válida'),
     body('monto').isFloat({ min: 0.01 }).withMessage('El monto debe ser mayor que 0'),

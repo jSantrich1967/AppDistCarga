@@ -248,22 +248,33 @@ app.get('/api/actas', authenticateToken, (req, res) => {
         let actas = db.actas || [];
         
         // Filtrar por rol
-        if (req.user.role === 'courier') {
-            actas = actas.filter(acta => acta.courierId === req.user.id);
-        } else if (req.user.role === 'agent') {
-            // Agente: solo actas propias por coincidencia de agente
-            actas = actas.filter(acta => (acta.agenteId && acta.agenteId === req.user.id) || (acta.agente && (acta.agente === req.user.username || acta.agente === req.user.fullName)));
-        } else if (req.user.role === 'client') {
-            // Cliente: solo actas que contengan guías del cliente y devolver SOLO estatus de sus guías
-            const clientNames = [req.user.fullName, req.user.username].filter(Boolean).map(n => (n || '').toString().trim().toLowerCase());
+        if (['courier', 'agent', 'client'].includes(req.user.role)) {
+            // Courier: por courierId; Agent: por agente; Client: por nombre de cliente en guías
+            const isCourier = req.user.role === 'courier';
+            const isAgent = req.user.role === 'agent';
+            const isClient = req.user.role === 'client';
+
+            const clientNames = [req.user.fullName, req.user.username]
+                .filter(Boolean)
+                .map(n => (n || '').toString().trim().toLowerCase());
+
             actas = actas
+                .filter(acta => {
+                    if (isCourier) return acta.courierId === req.user.id;
+                    if (isAgent) return (acta.agenteId && acta.agenteId === req.user.id) || (acta.agente && (acta.agente === req.user.username || acta.agente === req.user.fullName));
+                    if (isClient) {
+                        // Mantener solo actas que contengan guías del cliente
+                        const guides = (acta.guides || acta.guias || []);
+                        return guides.some(g => clientNames.includes(((g.nombreCliente || g.cliente || '') + '').trim().toLowerCase()));
+                    }
+                    return false;
+                })
                 .map(acta => {
-                    const guides = (acta.guides || acta.guias || []).filter(g => {
-                        const name = (g.nombreCliente || g.cliente || '').toString().trim().toLowerCase();
-                        return clientNames.includes(name);
-                    });
-                    if (guides.length === 0) return null;
-                    // Proyección mínima para cliente: id del acta, fecha y estado de sus guías
+                    // Proyección mínima: id, fecha, ciudad y estado de guías (solo las del cliente si aplica)
+                    let guides = (acta.guides || acta.guias || []);
+                    if (isClient) {
+                        guides = guides.filter(g => clientNames.includes(((g.nombreCliente || g.cliente || '') + '').trim().toLowerCase()));
+                    }
                     const minimalGuides = guides.map(g => ({
                         noGuia: g.noGuia,
                         status: g.status || 'almacen',
@@ -275,8 +286,7 @@ app.get('/api/actas', authenticateToken, (req, res) => {
                         ciudad: acta.ciudad,
                         guides: minimalGuides
                     };
-                })
-                .filter(Boolean);
+                });
         }
         
         res.json(actas);
@@ -385,17 +395,10 @@ app.get('/api/invoices', authenticateToken, (req, res) => {
     try {
         let invoices = db.invoices || [];
         
-        // Filtrar por rol
-        if (req.user.role === 'courier') {
-            invoices = invoices.filter(invoice => invoice.courierId === req.user.id);
-        } else if (req.user.role === 'agent') {
-            invoices = invoices.filter(inv => (inv.agenteId && inv.agenteId === req.user.id) || (inv.agente && (inv.agente === req.user.username || inv.agente === req.user.fullName)));
-        } else if (req.user.role === 'client') {
-            // Cliente: NO ver facturas completas; responder vacío para no exponer montos
-            invoices = [];
-        }
+        // Todos los roles no ven facturas completas en este endpoint (solo estatus de guías en actas)
+        return res.json([]);
         
-        res.json(invoices);
+        // res.json(invoices);
     } catch (error) {
         console.error('Error obteniendo facturas:', error);
         res.status(500).json({ error: 'Error obteniendo facturas' });
