@@ -209,24 +209,14 @@ app.get('/api/city-rates', authenticateToken, (req, res) => {
     }
 });
 
-app.post('/api/city-rates', authenticateToken, authorizeRoles(['admin']), (req, res) => {
+app.put('/api/city-rates', authenticateToken, authorizeRoles(['admin']), (req, res) => {
     try {
-        const { city, rate } = req.body;
-        
-        if (!city || rate === undefined) {
-            return res.status(400).json({ error: 'Ciudad y tarifa son requeridos' });
-        }
-        
-        if (!db.cityRates) {
-            db.cityRates = {};
-        }
-        
-        db.cityRates[city] = parseFloat(rate);
+        db.cityRates = { ...db.cityRates, ...req.body };
         saveDatabase();
-        res.json({ message: 'Tarifa actualizada', city, rate: db.cityRates[city] });
+        res.json({ message: 'Rates updated successfully' });
     } catch (error) {
-        console.error('Error actualizando tarifa:', error);
-        res.status(500).json({ error: 'Error actualizando tarifa' });
+        console.error('Error updating city rates:', error);
+        res.status(500).json({ message: error.message });
     }
 });
 
@@ -296,7 +286,7 @@ app.get('/api/actas', authenticateToken, (req, res) => {
     }
 });
 
-app.post('/api/actas', authenticateToken, (req, res) => {
+app.post('/api/actas', authenticateToken, authorizeRoles(['admin']), (req, res) => {
     try {
         const newActa = {
             id: Date.now().toString(),
@@ -342,7 +332,7 @@ app.get('/api/actas/:id', authenticateToken, (req, res) => {
     }
 });
 
-app.put('/api/actas/:id', authenticateToken, (req, res) => {
+app.put('/api/actas/:id', authenticateToken, authorizeRoles(['admin']), (req, res) => {
     try {
         const { id } = req.params;
         const actaIndex = db.actas.findIndex(a => a.id === id);
@@ -442,7 +432,7 @@ app.get('/api/invoices/:id', authenticateToken, (req, res) => {
     }
 });
 
-app.post('/api/invoices', authenticateToken, (req, res) => {
+app.post('/api/invoices', authenticateToken, authorizeRoles(['admin']), (req, res) => {
     try {
         const { actaId, ciudad } = req.body;
 
@@ -529,7 +519,7 @@ app.get('/api/payments', authenticateToken, (req, res) => {
     }
 });
 
-app.post('/api/payments', authenticateToken, (req, res) => {
+app.post('/api/payments', authenticateToken, authorizeRoles(['admin']), (req, res) => {
     try {
         const { invoiceId, fecha, concepto, referencia, monto, metodo } = req.body;
         

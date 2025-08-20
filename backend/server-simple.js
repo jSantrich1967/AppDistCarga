@@ -1793,10 +1793,12 @@ app.get('/api/city-rates', authenticateToken, async (req, res) => {
 
 app.put('/api/city-rates', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
     try {
+        console.log('Received rates to update:', req.body);
         db.cityRates = { ...db.cityRates, ...req.body };
         saveDatabase();
         res.json({ message: 'Rates updated successfully' });
     } catch (error) {
+        console.error('Error updating city rates:', error);
         res.status(500).json({ message: error.message });
     }
 });
