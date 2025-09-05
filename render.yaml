@@ -12,12 +12,6 @@ services:
       - key: NODE_ENV
         value: production
 
-  - type: static_site
-    name: app-dist-carga-frontend
-    plan: free
-    rootDir: frontend
-    staticPublishPath: .
-
 databases:
   - name: app-dist-carga-db
     plan: free
