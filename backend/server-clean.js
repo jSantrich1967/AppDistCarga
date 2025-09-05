@@ -6,13 +6,27 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const cookieParser = require('cookie-parser');
 
-console.log('📦 Servidor con base de datos PostgreSQL - v2');
+console.log('📦 Servidor con base de datos PostgreSQL - v3 - Manual Connection');
 
 // Cargar variables de entorno
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'tu-secreto-super-seguro-aqui';
-const DATABASE_URL = process.env.DATABASE_URL;
-console.log('DATABASE_URL:', DATABASE_URL);
+
+// Construir DATABASE_URL manualmente desde las variables de Render
+const PGHOST = process.env.PGHOST;
+const PGUSER = process.env.PGUSER;
+const PGPASSWORD = process.env.PGPASSWORD;
+const PGDATABASE = process.env.PGDATABASE;
+const PGPORT = process.env.PGPORT;
+
+console.log('PGHOST:', PGHOST);
+console.log('PGUSER:', PGUSER);
+console.log('PGDATABASE:', PGDATABASE);
+console.log('PGPORT:', PGPORT);
+
+const DATABASE_URL = `postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}`;
+
+console.log('Constructed DATABASE_URL:', DATABASE_URL.replace(PGPASSWORD, '********'));
 
 // Configuración de la base de datos
 const pool = new Pool({
