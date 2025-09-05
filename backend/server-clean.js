@@ -12,6 +12,7 @@ console.log('📦 Servidor con base de datos PostgreSQL - v2');
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'tu-secreto-super-seguro-aqui';
 const DATABASE_URL = process.env.DATABASE_URL;
+console.log('DATABASE_URL:', DATABASE_URL);
 
 // Configuración de la base de datos
 const pool = new Pool({
