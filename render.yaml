@@ -1,14 +1,20 @@
+databases:
+  - name: app-dist-carga-db
+    plan: free
+
 services:
   # Backend Service (Node.js with Express)
   - type: web
     name: app-dist-carga-backend
     env: node
     plan: free
-    rootDir: backend/
-    buildCommand: cd backend && npm install --production
-    startCommand: npm start
-    healthCheckPath: /api/debug
+    buildCommand: "npm install && cd backend && npm install"
+    startCommand: "node backend/server-clean.js"
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: app-dist-carga-db
+          property: connectionString
       - key: NODE_ENV
         value: production
 

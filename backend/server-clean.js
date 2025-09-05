@@ -1,16 +1,76 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
+const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const cookieParser = require('cookie-parser');
 
-console.log('📦 Servidor simplificado - Procesamiento Excel/CSV en frontend');
+console.log('📦 Servidor con base de datos PostgreSQL');
 
 // Cargar variables de entorno
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'tu-secreto-super-seguro-aqui';
+const DATABASE_URL = process.env.DATABASE_URL;
+
+// Configuración de la base de datos
+const pool = new Pool({
+    connectionString: DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
+
+// Función para inicializar la base de datos
+async function initializeDatabase() {
+    const client = await pool.connect();
+    try {
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(255) UNIQUE NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                role VARCHAR(50) NOT NULL,
+                full_name VARCHAR(255)
+            );
+
+            CREATE TABLE IF NOT EXISTS agents (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS city_rates (
+                id SERIAL PRIMARY KEY,
+                city VARCHAR(255) UNIQUE NOT NULL,
+                rate NUMERIC NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS actas (
+                id SERIAL PRIMARY KEY,
+                data JSONB,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS invoices (
+                id SERIAL PRIMARY KEY,
+                data JSONB,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS payments (
+                id SERIAL PRIMARY KEY,
+                data JSONB,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+        console.log('✅ Base de datos inicializada exitosamente');
+    } catch (error) {
+        console.error('❌ Error inicializando base de datos:', error);
+    } finally {
+        client.release();
+    }
+}
 
 const app = express();
 
@@ -22,72 +82,6 @@ app.use(cookieParser());
 
 // Servir archivos estáticos
 app.use(express.static(path.join(__dirname, '../frontend')));
-
-// Plantilla Excel - Procesamiento en frontend
-app.get('/api/plantilla-excel', (req, res) => {
-    res.json({ 
-        message: 'Plantilla generada en frontend',
-        instructions: 'Usa el botón "Plantilla Excel" en la interfaz para descargar'
-    });
-});
-
-// Base de datos en memoria usando archivo JSON
-let db = {};
-const dbPath = path.join(__dirname, 'db.json');
-
-// Función para cargar base de datos
-function loadDatabase() {
-    try {
-        if (fs.existsSync(dbPath)) {
-            const data = fs.readFileSync(dbPath, 'utf8');
-            db = JSON.parse(data);
-            
-            // Asegurar que todas las propiedades existan
-            if (!db.users) db.users = [];
-            if (!db.actas) db.actas = [];
-            if (!db.agents) db.agents = [];
-            if (!db.cityRates) db.cityRates = {};
-            if (!db.invoices) db.invoices = [];
-            if (!db.payments) db.payments = [];
-            if (!db.paymentReminders) db.paymentReminders = [];
-            
-            console.log('✅ Base de datos cargada exitosamente');
-        } else {
-            // Crear base de datos inicial
-            db = {
-                users: [],
-                actas: [],
-                agents: [],
-                cityRates: {},
-                invoices: [],
-                payments: [],
-                paymentReminders: []
-            };
-            saveDatabase();
-            console.log('📁 Nueva base de datos creada');
-        }
-    } catch (error) {
-        console.error('❌ Error cargando base de datos:', error);
-        db = {
-            users: [],
-            actas: [],
-            agents: [],
-            cityRates: {},
-            invoices: [],
-            payments: [],
-            paymentReminders: []
-        };
-    }
-}
-
-// Función para guardar base de datos
-function saveDatabase() {
-    try {
-        fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
-    } catch (error) {
-        console.error('❌ Error guardando base de datos:', error);
-    }
-}
 
 // Middleware de autenticación
 function authenticateToken(req, res, next) {
@@ -119,8 +113,9 @@ function authorizeRoles(allowedRoles) {
 app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
-        
-        const user = db.users.find(u => u.username === username);
+        const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+        const user = result.rows[0];
+
         if (!user) {
             return res.status(401).json({ error: 'Credenciales inválidas' });
         }
@@ -131,19 +126,19 @@ app.post('/api/login', async (req, res) => {
         }
 
         const token = jwt.sign(
-            { id: user.id, username: user.username, role: user.role }, 
-            JWT_SECRET, 
+            { id: user.id, username: user.username, role: user.role },
+            JWT_SECRET,
             { expiresIn: '24h' }
         );
 
-        res.json({ 
-            token, 
-            user: { 
-                id: user.id, 
-                username: user.username, 
+        res.json({
+            token,
+            user: {
+                id: user.id,
+                username: user.username,
                 role: user.role,
-                fullName: user.fullName || username
-            } 
+                fullName: user.full_name || username
+            }
         });
     } catch (error) {
         console.error('Error en login:', error);
@@ -151,47 +146,32 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// Ruta protegida de prueba
-app.get('/api/protected', authenticateToken, (req, res) => {
-    res.json({ message: 'Esta es una ruta protegida', user: req.user });
-});
-
 // CRUD para Agentes
-app.get('/api/agents', authenticateToken, (req, res) => {
+app.get('/api/agents', authenticateToken, async (req, res) => {
     try {
-        res.json(db.agents || []);
+        const result = await pool.query('SELECT * FROM agents');
+        res.json(result.rows);
     } catch (error) {
         console.error('Error obteniendo agentes:', error);
         res.status(500).json({ error: 'Error obteniendo agentes' });
     }
 });
 
-app.post('/api/agents', authenticateToken, authorizeRoles(['admin']), (req, res) => {
+app.post('/api/agents', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
     try {
-        const newAgent = {
-            id: Date.now().toString(),
-            ...req.body,
-            createdAt: new Date().toISOString()
-        };
-        
-        if (!db.agents) {
-            db.agents = [];
-        }
-        
-        db.agents.push(newAgent);
-        saveDatabase();
-        res.status(201).json(newAgent);
+        const { name } = req.body;
+        const result = await pool.query('INSERT INTO agents (name) VALUES ($1) RETURNING *', [name]);
+        res.status(201).json(result.rows[0]);
     } catch (error) {
         console.error('Error creando agente:', error);
         res.status(500).json({ error: 'Error creando agente' });
     }
 });
 
-app.delete('/api/agents/:id', authenticateToken, authorizeRoles(['admin']), (req, res) => {
+app.delete('/api/agents/:id', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
     try {
         const { id } = req.params;
-        db.agents = db.agents.filter(agent => agent.id !== id);
-        saveDatabase();
+        await pool.query('DELETE FROM agents WHERE id = $1', [id]);
         res.json({ message: 'Agente eliminado' });
     } catch (error) {
         console.error('Error eliminando agente:', error);
@@ -200,31 +180,38 @@ app.delete('/api/agents/:id', authenticateToken, authorizeRoles(['admin']), (req
 });
 
 // CRUD para Tarifas de Ciudad
-app.get('/api/city-rates', authenticateToken, (req, res) => {
+app.get('/api/city-rates', authenticateToken, async (req, res) => {
     try {
-        res.json(db.cityRates || {});
+        const result = await pool.query('SELECT city, rate FROM city_rates');
+        const rates = result.rows.reduce((acc, row) => {
+            acc[row.city] = row.rate;
+            return acc;
+        }, {});
+        res.json(rates);
     } catch (error) {
         console.error('Error obteniendo tarifas:', error);
         res.status(500).json({ error: 'Error obteniendo tarifas' });
     }
 });
 
-app.put('/api/city-rates', authenticateToken, authorizeRoles(['admin']), (req, res) => {
+app.post('/api/city-rates', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
     try {
-        db.cityRates = { ...db.cityRates, ...req.body };
-        saveDatabase();
-        res.json({ message: 'Rates updated successfully' });
+        const { city, rate } = req.body;
+        if (!city || rate === undefined) {
+            return res.status(400).json({ error: 'La ciudad y la tarifa son requeridas' });
+        }
+        const result = await pool.query('INSERT INTO city_rates (city, rate) VALUES ($1, $2) ON CONFLICT (city) DO UPDATE SET rate = $2 RETURNING city, rate', [city, rate]);
+        res.status(201).json(result.rows[0]);
     } catch (error) {
-        console.error('Error updating city rates:', error);
-        res.status(500).json({ message: error.message });
+        console.error('Error creando tarifa:', error);
+        res.status(500).json({ error: 'Error creando tarifa' });
     }
 });
 
-app.delete('/api/city-rates/:city', authenticateToken, authorizeRoles(['admin']), (req, res) => {
+app.delete('/api/city-rates/:city', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
     try {
         const { city } = req.params;
-        delete db.cityRates[city];
-        saveDatabase();
+        await pool.query('DELETE FROM city_rates WHERE city = $1', [city]);
         res.json({ message: 'Tarifa eliminada' });
     } catch (error) {
         console.error('Error eliminando tarifa:', error);
@@ -232,78 +219,25 @@ app.delete('/api/city-rates/:city', authenticateToken, authorizeRoles(['admin'])
     }
 });
 
-// CRUD para Actas con filtrado por rol
-app.get('/api/actas', authenticateToken, (req, res) => {
+// CRUD para Actas
+app.get('/api/actas', authenticateToken, async (req, res) => {
     try {
-        let actas = db.actas || [];
-        
-        // Filtrar por rol
-        if (['courier', 'agent', 'client'].includes(req.user.role)) {
-            // Courier: por courierId; Agent: por agente; Client: por nombre de cliente en guías
-            const isCourier = req.user.role === 'courier';
-            const isAgent = req.user.role === 'agent';
-            const isClient = req.user.role === 'client';
-
-            const clientNames = [req.user.fullName, req.user.username]
-                .filter(Boolean)
-                .map(n => (n || '').toString().trim().toLowerCase());
-
-            actas = actas
-                .filter(acta => {
-                    if (isCourier) return acta.courierId === req.user.id;
-                    if (isAgent) return (acta.agenteId && acta.agenteId === req.user.id) || (acta.agente && (acta.agente === req.user.username || acta.agente === req.user.fullName));
-                    if (isClient) {
-                        // Mantener solo actas que contengan guías del cliente
-                        const guides = (acta.guides || acta.guias || []);
-                        return guides.some(g => clientNames.includes(((g.nombreCliente || g.cliente || '') + '').trim().toLowerCase()));
-                    }
-                    return false;
-                })
-                .map(acta => {
-                    // Proyección mínima: id, fecha, ciudad y estado de guías (solo las del cliente si aplica)
-                    let guides = (acta.guides || acta.guias || []);
-                    if (isClient) {
-                        guides = guides.filter(g => clientNames.includes(((g.nombreCliente || g.cliente || '') + '').trim().toLowerCase()));
-                    }
-                    const minimalGuides = guides.map(g => ({
-                        noGuia: g.noGuia,
-                        status: g.status || 'almacen',
-                        statusHistory: g.statusHistory || []
-                    }));
-                    return {
-                        id: acta.id,
-                        fecha: acta.fecha,
-                        ciudad: acta.ciudad,
-                        guides: minimalGuides
-                    };
-                });
-        }
-        
-        res.json(actas);
+        const result = await pool.query('SELECT * FROM actas');
+        res.json(result.rows.map(r => r.data));
     } catch (error) {
         console.error('Error obteniendo actas:', error);
         res.status(500).json({ error: 'Error obteniendo actas' });
     }
 });
 
-app.post('/api/actas', authenticateToken, authorizeRoles(['admin']), (req, res) => {
+app.post('/api/actas', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
     try {
         const newActa = {
             id: Date.now().toString(),
             ...req.body,
-            status: 'pending',
-            courierId: req.user.role === 'courier' ? req.user.id : req.body.courierId,
             createdAt: new Date().toISOString()
         };
-        
-        if (!db.actas) {
-            db.actas = [];
-        }
-        
-        db.actas.push(newActa);
-        saveDatabase();
-        
-        console.log('✅ Nueva acta creada:', newActa.id);
+        await pool.query('INSERT INTO actas (data) VALUES ($1)', [newActa]);
         res.status(201).json(newActa);
     } catch (error) {
         console.error('Error creando acta:', error);
@@ -311,68 +245,39 @@ app.post('/api/actas', authenticateToken, authorizeRoles(['admin']), (req, res) 
     }
 });
 
-app.get('/api/actas/:id', authenticateToken, (req, res) => {
+app.get('/api/actas/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const acta = db.actas.find(a => a.id === id);
-        
-        if (!acta) {
+        const result = await pool.query('SELECT * FROM actas WHERE data->>'id' = $1', [id]);
+        if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Acta no encontrada' });
         }
-        
-        // Verificar permisos
-        if (req.user.role === 'courier' && acta.courierId !== req.user.id) {
-            return res.status(403).json({ error: 'Acceso denegado' });
-        }
-        
-        res.json(acta);
+        res.json(result.rows[0].data);
     } catch (error) {
         console.error('Error obteniendo acta:', error);
         res.status(500).json({ error: 'Error obteniendo acta' });
     }
 });
 
-app.put('/api/actas/:id', authenticateToken, authorizeRoles(['admin']), (req, res) => {
+app.put('/api/actas/:id', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
     try {
         const { id } = req.params;
-        const actaIndex = db.actas.findIndex(a => a.id === id);
-        
-        if (actaIndex === -1) {
+        const updatedActa = { ...req.body, updatedAt: new Date().toISOString() };
+        const result = await pool.query('UPDATE actas SET data = $1 WHERE data->>'id' = $2 RETURNING *', [updatedActa, id]);
+        if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Acta no encontrada' });
         }
-        
-        // Verificar permisos
-        if (req.user.role === 'courier' && db.actas[actaIndex].courierId !== req.user.id) {
-            return res.status(403).json({ error: 'Acceso denegado' });
-        }
-        
-        db.actas[actaIndex] = { ...db.actas[actaIndex], ...req.body, updatedAt: new Date().toISOString() };
-        saveDatabase();
-        
-        res.json(db.actas[actaIndex]);
+        res.json(result.rows[0].data);
     } catch (error) {
         console.error('Error actualizando acta:', error);
         res.status(500).json({ error: 'Error actualizando acta' });
     }
 });
 
-app.delete('/api/actas/:id', authenticateToken, (req, res) => {
+app.delete('/api/actas/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const actaIndex = db.actas.findIndex(a => a.id === id);
-        
-        if (actaIndex === -1) {
-            return res.status(404).json({ error: 'Acta no encontrada' });
-        }
-        
-        // Verificar permisos
-        if (req.user.role === 'courier' && db.actas[actaIndex].courierId !== req.user.id) {
-            return res.status(403).json({ error: 'Acceso denegado' });
-        }
-        
-        db.actas.splice(actaIndex, 1);
-        saveDatabase();
-        
+        await pool.query('DELETE FROM actas WHERE data->>'id' = $1', [id]);
         res.json({ message: 'Acta eliminada' });
     } catch (error) {
         console.error('Error eliminando acta:', error);
@@ -380,427 +285,21 @@ app.delete('/api/actas/:id', authenticateToken, (req, res) => {
     }
 });
 
-// CRUD para Facturas con filtrado por rol
-app.get('/api/invoices', authenticateToken, (req, res) => {
-    try {
-        let invoices = db.invoices || [];
-        
-        // Todos los roles no ven facturas completas en este endpoint (solo estatus de guías en actas)
-        return res.json([]);
-        
-        // res.json(invoices);
-    } catch (error) {
-        console.error('Error obteniendo facturas:', error);
-        res.status(500).json({ error: 'Error obteniendo facturas' });
-    }
-});
-
-// Obtener una factura por id
-app.get('/api/invoices/:id', authenticateToken, (req, res) => {
-    try {
-        const invoice = (db.invoices || []).find(inv => inv.id === req.params.id);
-        if (!invoice) {
-            return res.status(404).json({ error: 'Factura no encontrada' });
-        }
-
-        // Verificar permisos
-        if (req.user.role === 'courier') {
-            const acta = (db.actas || []).find(a => a.id === invoice.actaId);
-            if (acta && acta.courierId !== req.user.id) {
-                return res.status(403).json({ error: 'Acceso denegado' });
-            }
-        } else if (req.user.role === 'client') {
-            // Cliente: devolver sólo información mínima de estatus de sus guías
-            const clientNames = [req.user.fullName, req.user.username].filter(Boolean).map(n => (n || '').toString().trim().toLowerCase());
-            const guides = (invoice.guides || invoice.guias || []).filter(g => {
-                const name = (g.nombreCliente || g.cliente || '').toString().trim().toLowerCase();
-                return clientNames.includes(name);
-            });
-            const minimal = {
-                id: invoice.id,
-                fecha: invoice.fecha,
-                ciudad: invoice.ciudad,
-                guides: guides.map(g => ({ noGuia: g.noGuia, status: g.status || 'almacen', statusHistory: g.statusHistory || [] }))
-            };
-            return res.json(minimal);
-        }
-
-        res.json(invoice);
-    } catch (error) {
-        console.error('Error obteniendo factura:', error);
-        res.status(500).json({ error: 'Error obteniendo factura' });
-    }
-});
-
-app.post('/api/invoices', authenticateToken, authorizeRoles(['admin']), (req, res) => {
-    try {
-        const { actaId, ciudad } = req.body;
-
-        const acta = db.actas.find(a => a.id === actaId);
-        if (!acta) {
-            return res.status(404).json({ error: 'Acta no encontrada' });
-        }
-
-        // Verificar permisos
-        if (req.user.role === 'courier' && acta.courierId !== req.user.id) {
-            return res.status(403).json({ error: 'Acceso denegado' });
-        }
-
-        // Calcular subtotal/total de forma robusta
-        const guides = acta.guides || acta.guias || [];
-        const cityRates = db.cityRates || {};
-        const usedCity = ciudad || acta.ciudad;
-        const rate = cityRates[usedCity] || 0;
-
-        const subtotal = guides.reduce((sum, guide) => {
-            const guideSubtotal = parseFloat(guide.subtotal);
-            if (!isNaN(guideSubtotal)) {
-                return sum + guideSubtotal;
-            }
-            const pies = parseFloat(
-                guide.piesCubicos !== undefined ? guide.piesCubicos : guide.pies
-            ) || 0;
-            return sum + pies * rate;
-        }, 0);
-        const total = subtotal; // exento de IVA
-
-        const invoiceId = Date.now().toString();
-        const invoiceNumber = `FAC-${invoiceId}`;
-
-        const newInvoice = {
-            id: invoiceId,
-            actaId: actaId,
-            numero: invoiceNumber,
-            number: invoiceNumber, // compatibilidad con frontend
-            fecha: new Date().toISOString().split('T')[0],
-            ciudad: usedCity,
-            agente: acta.agente,
-            guides: guides,
-            numGuides: guides.length,
-            subtotal: subtotal,
-            total: total,
-            courierId: acta.courierId,
-            status: 'pending',
-            currency: 'USD',
-            paymentTerms: '30 días',
-            notes: `Factura generada automáticamente para el Acta ${acta.id} | Exenta de IVA`,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        };
-
-        if (!db.invoices) {
-            db.invoices = [];
-        }
-
-        db.invoices.push(newInvoice);
-        saveDatabase();
-
-        res.status(201).json(newInvoice);
-    } catch (error) {
-        console.error('Error creando factura:', error);
-        res.status(500).json({ error: 'Error creando factura' });
-    }
-});
-
-// CRUD para Pagos con filtrado por rol
-app.get('/api/payments', authenticateToken, (req, res) => {
-    try {
-        let payments = db.payments || [];
-        
-        // Filtrar por rol
-        if (req.user.role === 'courier') {
-            payments = payments.filter(payment => payment.courierId === req.user.id);
-        }
-        
-        res.json(payments);
-    } catch (error) {
-        console.error('Error obteniendo pagos:', error);
-        res.status(500).json({ error: 'Error obteniendo pagos' });
-    }
-});
-
-app.post('/api/payments', authenticateToken, authorizeRoles(['admin']), (req, res) => {
-    try {
-        const { invoiceId, fecha, concepto, referencia, monto, metodo } = req.body;
-        
-        const invoice = db.invoices.find(inv => inv.id === invoiceId);
-        if (!invoice) {
-            return res.status(404).json({ error: 'Factura no encontrada' });
-        }
-        
-        // Verificar permisos
-        if (req.user.role === 'courier' && invoice.courierId !== req.user.id) {
-            return res.status(403).json({ error: 'Acceso denegado' });
-        }
-        
-        const newPayment = {
-            id: Date.now().toString(),
-            invoiceId,
-            fecha,
-            concepto,
-            referencia,
-            monto: parseFloat(monto),
-            metodo,
-            estado: 'completado',
-            courierId: invoice.courierId,
-            createdAt: new Date().toISOString()
-        };
-        
-        if (!db.payments) {
-            db.payments = [];
-        }
-        
-        db.payments.push(newPayment);
-
-        // Recalcular estado de la factura con pagos completados
-        const totalPaid = db.payments
-            .filter(p => p.invoiceId === invoiceId && p.estado === 'completado')
-            .reduce((sum, p) => sum + (p.monto || 0), 0);
-        if (totalPaid <= 0) {
-            invoice.status = 'pending';
-        } else if (totalPaid < invoice.total) {
-            invoice.status = 'partial';
-        } else {
-            invoice.status = 'paid';
-        }
-        invoice.updatedAt = new Date().toISOString();
-
-        saveDatabase();
-        
-        res.status(201).json(newPayment);
-    } catch (error) {
-        console.error('Error creando pago:', error);
-        res.status(500).json({ error: 'Error creando pago' });
-    }
-});
-
-// Obtener un pago por id
-app.get('/api/payments/:id', authenticateToken, (req, res) => {
-    try {
-        const payment = (db.payments || []).find(p => p.id === req.params.id);
-        if (!payment) {
-            return res.status(404).json({ error: 'Pago no encontrado' });
-        }
-
-        // Verificar permisos
-        if (req.user.role === 'courier') {
-            const invoice = (db.invoices || []).find(inv => inv.id === payment.invoiceId);
-            if (invoice) {
-                const acta = (db.actas || []).find(a => a.id === invoice.actaId);
-                if (acta && acta.courierId !== req.user.id) {
-                    return res.status(403).json({ error: 'Acceso denegado' });
-                }
-            }
-        }
-
-        res.json(payment);
-    } catch (error) {
-        console.error('Error obteniendo pago:', error);
-        res.status(500).json({ error: 'Error obteniendo pago' });
-    }
-});
-
-// Anular pago (solo admin)
-app.put('/api/payments/:id/void', authenticateToken, authorizeRoles(['admin']), (req, res) => {
-    try {
-        const { id } = req.params;
-        const { reason } = req.body || {};
-
-        const payment = (db.payments || []).find(p => p.id === id);
-        if (!payment) {
-            return res.status(404).json({ error: 'Pago no encontrado' });
-        }
-
-        // Marcar pago como anulado
-        payment.estado = 'anulado';
-        payment.voidReason = reason || 'Anulado por administrador';
-        payment.voidedAt = new Date().toISOString();
-
-        // Recalcular estado de la factura asociada considerando solo pagos completados
-        const invoice = (db.invoices || []).find(inv => inv.id === payment.invoiceId);
-        if (invoice) {
-            const totalPaid = (db.payments || [])
-                .filter(p => p.invoiceId === invoice.id && p.estado === 'completado')
-                .reduce((sum, p) => sum + (p.monto || 0), 0);
-
-            if (totalPaid <= 0) {
-                invoice.status = 'pending';
-            } else if (totalPaid < invoice.total) {
-                invoice.status = 'partial';
-            } else {
-                invoice.status = 'paid';
-            }
-            invoice.updatedAt = new Date().toISOString();
-        }
-
-        saveDatabase();
-        res.json({ success: true, payment });
-    } catch (error) {
-        console.error('Error anulando pago:', error);
-        res.status(500).json({ error: 'Error anulando pago' });
-    }
-});
-
-// Dashboard con filtrado por rol
-app.get('/api/dashboard', authenticateToken, (req, res) => {
-    try {
-        let actas = db.actas || [];
-        let invoices = db.invoices || [];
-        let payments = db.payments || [];
-
-        // Filtrar por rol
-        if (req.user.role === 'courier') {
-            actas = actas.filter(acta => acta.courierId === req.user.id);
-            invoices = invoices.filter(invoice => invoice.courierId === req.user.id);
-            payments = payments.filter(payment => {
-                const inv = (db.invoices || []).find(i => i.id === payment.invoiceId);
-                return inv ? inv.courierId === req.user.id : false;
-            });
-        }
-
-        const totalActas = actas.length;
-        const totalInvoices = invoices.length;
-
-        // Solo pagos completados para montos cobrados
-        const completedPayments = payments.filter(p => p.estado === 'completado');
-        const totalCollected = completedPayments.reduce((sum, p) => sum + (parseFloat(p.monto) || 0), 0);
-
-        // Total facturado = suma de totales de facturas
-        const totalBilled = invoices.reduce((sum, inv) => sum + (parseFloat(inv.total ?? inv.subtotal ?? 0) || 0), 0);
-
-        // Mantener métricas previas para compatibilidad
-        const totalPayments = payments.length;
-        const totalRevenue = totalCollected;
-
-        res.json({
-            totalActas,
-            totalInvoices,
-            totalPayments,
-            totalRevenue,
-            totalBilled,
-            totalCollected,
-            userRole: req.user.role
-        });
-    } catch (error) {
-        console.error('Error obteniendo dashboard:', error);
-        res.status(500).json({ error: 'Error obteniendo dashboard' });
-    }
-});
-
-// Cuentas por cobrar con filtrado por rol
-app.get('/api/accounts-receivable', authenticateToken, (req, res) => {
-    try {
-        let invoices = db.invoices || [];
-        const payments = db.payments || [];
-        
-        // Filtrar por rol
-        if (req.user.role === 'courier') {
-            invoices = invoices.filter(invoice => invoice.courierId === req.user.id);
-        } else if (req.user.role === 'agent') {
-            invoices = invoices.filter(inv => (inv.agenteId && inv.agenteId === req.user.id) || (inv.agente && (inv.agente === req.user.username || inv.agente === req.user.fullName)));
-        } else if (req.user.role === 'client') {
-            const clientNames = [req.user.fullName, req.user.username].filter(Boolean).map(n => (n || '').toString().trim().toLowerCase());
-            invoices = invoices
-                .map(inv => {
-                    const guides = (inv.guides || inv.guias || []).filter(g => {
-                        const name = (g.nombreCliente || g.cliente || '').toString().trim().toLowerCase();
-                        return clientNames.includes(name);
-                    });
-                    if (guides.length === 0) return null;
-                    return { ...inv, guides, guias: undefined, numGuides: guides.length };
-                })
-                .filter(Boolean);
-        }
-        
-        const accountsReceivable = invoices.map(invoice => {
-            const totalPaid = payments
-                .filter(payment => payment.invoiceId === invoice.id && payment.estado === 'completado')
-                .reduce((sum, payment) => sum + payment.monto, 0);
-            
-            const balance = invoice.total - totalPaid;
-            
-            return {
-                ...invoice,
-                totalPaid,
-                balance,
-                status: balance <= 0 ? 'paid' : 'pending'
-            };
-        }).filter(account => account.balance > 0);
-        
-        const totalPending = accountsReceivable.reduce((sum, ar) => sum + ar.balance, 0);
-
-        console.log('Enviando cuentas por cobrar:', { accounts: accountsReceivable, summary: { totalInvoices: accountsReceivable.length, totalPending } });
-
-        res.json({
-            accounts: accountsReceivable,
-            summary: {
-                totalInvoices: accountsReceivable.length,
-                totalPending
-            }
-        });
-    } catch (error) {
-        console.error('Error obteniendo cuentas por cobrar:', error);
-        res.status(500).json({ error: 'Error obteniendo cuentas por cobrar' });
-    }
-});
-
-// Backup y restore
-app.get('/api/backup/export', authenticateToken, authorizeRoles(['admin']), (req, res) => {
-    try {
-        const backup = {
-            ...db,
-            exportDate: new Date().toISOString(),
-            version: '1.0'
-        };
-        
-        res.setHeader('Content-Type', 'application/json');
-        res.setHeader('Content-Disposition', 'attachment; filename=backup.json');
-        res.json(backup);
-    } catch (error) {
-        console.error('Error exportando backup:', error);
-        res.status(500).json({ error: 'Error exportando backup' });
-    }
-});
-
-app.post('/api/backup/import', authenticateToken, authorizeRoles(['admin']), (req, res) => {
-    try {
-        const backupData = req.body;
-        
-        // Validar estructura del backup
-        if (!backupData.users || !Array.isArray(backupData.users)) {
-            return res.status(400).json({ error: 'Formato de backup inválido' });
-        }
-        
-        // Restaurar base de datos
-        db = {
-            users: backupData.users || [],
-            actas: backupData.actas || [],
-            agents: backupData.agents || [],
-            cityRates: backupData.cityRates || {},
-            invoices: backupData.invoices || [],
-            payments: backupData.payments || [],
-            paymentReminders: backupData.paymentReminders || []
-        };
-        
-        saveDatabase();
-        res.json({ message: 'Backup restaurado exitosamente' });
-    } catch (error) {
-        console.error('Error importando backup:', error);
-        res.status(500).json({ error: 'Error importando backup' });
-    }
-});
 
 // Ruta para servir la aplicación (debe ir al final)
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-// Inicializar servidor
-loadDatabase();
+// Inicializar y arrancar servidor
+async function startServer() {
+    await initializeDatabase();
+    app.listen(PORT, () => {
+        console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+        console.log(`📱 Aplicación disponible en: http://localhost:${PORT}`);
+    });
+}
 
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
-    console.log(`📱 Aplicación disponible en: http://localhost:${PORT}`);
-});
+startServer();
 
-module.exports = app; 
+module.exports = app;
