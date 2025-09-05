@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const cookieParser = require('cookie-parser');
 
-console.log('📦 Servidor con base de datos PostgreSQL');
+console.log('📦 Servidor con base de datos PostgreSQL - v2');
 
 // Cargar variables de entorno
 const PORT = process.env.PORT || 3000;
@@ -47,19 +47,21 @@ async function initializeDatabase() {
             );
 
             CREATE TABLE IF NOT EXISTS actas (
-                id SERIAL PRIMARY KEY,
+                id VARCHAR(255) PRIMARY KEY,
                 data JSONB,
                 created_at TIMESTAMPTZ DEFAULT NOW()
             );
 
             CREATE TABLE IF NOT EXISTS invoices (
-                id SERIAL PRIMARY KEY,
+                id VARCHAR(255) PRIMARY KEY,
+                acta_id VARCHAR(255) REFERENCES actas(id),
                 data JSONB,
                 created_at TIMESTAMPTZ DEFAULT NOW()
             );
 
             CREATE TABLE IF NOT EXISTS payments (
-                id SERIAL PRIMARY KEY,
+                id VARCHAR(255) PRIMARY KEY,
+                invoice_id VARCHAR(255) REFERENCES invoices(id),
                 data JSONB,
                 created_at TIMESTAMPTZ DEFAULT NOW()
             );
@@ -146,98 +148,15 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// CRUD para Agentes
-app.get('/api/agents', authenticateToken, async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM agents');
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error obteniendo agentes:', error);
-        res.status(500).json({ error: 'Error obteniendo agentes' });
-    }
-});
-
-app.post('/api/agents', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
-    try {
-        const { name } = req.body;
-        const result = await pool.query('INSERT INTO agents (name) VALUES ($1) RETURNING *', [name]);
-        res.status(201).json(result.rows[0]);
-    } catch (error) {
-        console.error('Error creando agente:', error);
-        res.status(500).json({ error: 'Error creando agente' });
-    }
-});
-
-app.delete('/api/agents/:id', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
-    try {
-        const { id } = req.params;
-        await pool.query('DELETE FROM agents WHERE id = $1', [id]);
-        res.json({ message: 'Agente eliminado' });
-    } catch (error) {
-        console.error('Error eliminando agente:', error);
-        res.status(500).json({ error: 'Error eliminando agente' });
-    }
-});
-
-// CRUD para Tarifas de Ciudad
-app.get('/api/city-rates', authenticateToken, async (req, res) => {
-    try {
-        const result = await pool.query('SELECT city, rate FROM city_rates');
-        const rates = result.rows.reduce((acc, row) => {
-            acc[row.city] = row.rate;
-            return acc;
-        }, {});
-        res.json(rates);
-    } catch (error) {
-        console.error('Error obteniendo tarifas:', error);
-        res.status(500).json({ error: 'Error obteniendo tarifas' });
-    }
-});
-
-app.post('/api/city-rates', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
-    try {
-        const { city, rate } = req.body;
-        if (!city || rate === undefined) {
-            return res.status(400).json({ error: 'La ciudad y la tarifa son requeridas' });
-        }
-        const result = await pool.query('INSERT INTO city_rates (city, rate) VALUES ($1, $2) ON CONFLICT (city) DO UPDATE SET rate = $2 RETURNING city, rate', [city, rate]);
-        res.status(201).json(result.rows[0]);
-    } catch (error) {
-        console.error('Error creando tarifa:', error);
-        res.status(500).json({ error: 'Error creando tarifa' });
-    }
-});
-
-app.delete('/api/city-rates/:city', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
-    try {
-        const { city } = req.params;
-        await pool.query('DELETE FROM city_rates WHERE city = $1', [city]);
-        res.json({ message: 'Tarifa eliminada' });
-    } catch (error) {
-        console.error('Error eliminando tarifa:', error);
-        res.status(500).json({ error: 'Error eliminando tarifa' });
-    }
-});
-
 // CRUD para Actas
-app.get('/api/actas', authenticateToken, async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM actas');
-        res.json(result.rows.map(r => r.data));
-    } catch (error) {
-        console.error('Error obteniendo actas:', error);
-        res.status(500).json({ error: 'Error obteniendo actas' });
-    }
-});
-
-app.post('/api/actas', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
+app.post('/api/actas', authenticateToken, async (req, res) => {
     try {
         const newActa = {
             id: Date.now().toString(),
             ...req.body,
             createdAt: new Date().toISOString()
         };
-        await pool.query('INSERT INTO actas (data) VALUES ($1)', [newActa]);
+        await pool.query('INSERT INTO actas (id, data) VALUES ($1, $2)', [newActa.id, newActa]);
         res.status(201).json(newActa);
     } catch (error) {
         console.error('Error creando acta:', error);
@@ -245,10 +164,20 @@ app.post('/api/actas', authenticateToken, authorizeRoles(['admin']), async (req,
     }
 });
 
+app.get('/api/actas', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT data FROM actas');
+        res.json(result.rows.map(r => r.data));
+    } catch (error) {
+        console.error('Error obteniendo actas:', error);
+        res.status(500).json({ error: 'Error obteniendo actas' });
+    }
+});
+
 app.get('/api/actas/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const result = await pool.query('SELECT * FROM actas WHERE data->>'id' = $1', [id]);
+        const result = await pool.query('SELECT data FROM actas WHERE id = $1', [id]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Acta no encontrada' });
         }
@@ -259,29 +188,103 @@ app.get('/api/actas/:id', authenticateToken, async (req, res) => {
     }
 });
 
-app.put('/api/actas/:id', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
+// CRUD para Facturas
+app.post('/api/invoices', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
     try {
-        const { id } = req.params;
-        const updatedActa = { ...req.body, updatedAt: new Date().toISOString() };
-        const result = await pool.query('UPDATE actas SET data = $1 WHERE data->>'id' = $2 RETURNING *', [updatedActa, id]);
-        if (result.rows.length === 0) {
+        const { actaId } = req.body;
+        const actaResult = await pool.query('SELECT data FROM actas WHERE id = $1', [actaId]);
+        if (actaResult.rows.length === 0) {
             return res.status(404).json({ error: 'Acta no encontrada' });
         }
-        res.json(result.rows[0].data);
+        const acta = actaResult.rows[0].data;
+
+        const cityRatesResult = await pool.query('SELECT city, rate FROM city_rates');
+        const cityRates = cityRatesResult.rows.reduce((acc, row) => {
+            acc[row.city] = parseFloat(row.rate);
+            return acc;
+        }, {});
+
+        const rate = cityRates[acta.ciudad] || 0;
+        const guides = acta.guides || [];
+        const subtotal = guides.reduce((sum, guide) => {
+            const pies = parseFloat(guide.piesCubicos) || 0;
+            return sum + pies * rate;
+        }, 0);
+
+        const total = subtotal; // IVA exento
+
+        const invoiceId = Date.now().toString();
+        const newInvoice = {
+            id: invoiceId,
+            actaId: actaId,
+            numero: `FAC-${invoiceId}`,
+            fecha: new Date().toISOString().split('T')[0],
+            ciudad: acta.ciudad,
+            agente: acta.agente,
+            guides: guides,
+            numGuides: guides.length,
+            subtotal: subtotal,
+            total: total,
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+        };
+
+        await pool.query('INSERT INTO invoices (id, acta_id, data) VALUES ($1, $2, $3)', [newInvoice.id, actaId, newInvoice]);
+
+        res.status(201).json(newInvoice);
     } catch (error) {
-        console.error('Error actualizando acta:', error);
-        res.status(500).json({ error: 'Error actualizando acta' });
+        console.error('Error creando factura:', error);
+        res.status(500).json({ error: 'Error creando factura' });
     }
 });
 
-app.delete('/api/actas/:id', authenticateToken, async (req, res) => {
+app.get('/api/invoices', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT data FROM invoices');
+        res.json(result.rows.map(r => r.data));
+    } catch (error) {
+        console.error('Error obteniendo facturas:', error);
+        res.status(500).json({ error: 'Error obteniendo facturas' });
+    }
+});
+
+app.get('/api/invoices/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        await pool.query('DELETE FROM actas WHERE data->>'id' = $1', [id]);
-        res.json({ message: 'Acta eliminada' });
+        const result = await pool.query('SELECT data FROM invoices WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Factura no encontrada' });
+        }
+        res.json(result.rows[0].data);
     } catch (error) {
-        console.error('Error eliminando acta:', error);
-        res.status(500).json({ error: 'Error eliminando acta' });
+        console.error('Error obteniendo factura:', error);
+        res.status(500).json({ error: 'Error obteniendo factura' });
+    }
+});
+
+// Dashboard
+app.get('/api/dashboard', authenticateToken, async (req, res) => {
+    try {
+        const actasResult = await pool.query('SELECT COUNT(*) FROM actas');
+        const invoicesResult = await pool.query('SELECT data FROM invoices');
+        
+        const totalActas = parseInt(actasResult.rows[0].count, 10);
+        const invoices = invoicesResult.rows.map(r => r.data);
+        const totalInvoices = invoices.length;
+
+        const totalBilled = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+
+        res.json({
+            totalActas,
+            totalInvoices,
+            totalBilled,
+            totalCollected: 0, // Placeholder
+            pendingBalance: totalBilled, // Placeholder
+            userRole: req.user.role
+        });
+    } catch (error) {
+        console.error('Error obteniendo dashboard:', error);
+        res.status(500).json({ error: 'Error obteniendo dashboard' });
     }
 });
 
