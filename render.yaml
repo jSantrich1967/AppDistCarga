@@ -12,7 +12,7 @@ services:
       - key: NODE_ENV
         value: production
 
-  - type: static
+  - type: static_site
     name: app-dist-carga-frontend
     plan: free
     rootDir: frontend
@@ -20,4 +20,4 @@ services:
 
 databases:
   - name: app-dist-carga-db
-    plan: free 
+    plan: free

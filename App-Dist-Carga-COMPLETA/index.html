@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Actas de Despacho</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Pantalla de Login -->
+    <div id="loginScreen" class="screen active">
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-header">
+                    <i class="fas fa-truck"></i>
+                    <h1>Sistema de Gestión</h1>
+                    <p>Actas de Despacho de Carga</p>
+                </div>
+                <form id="loginForm" class="login-form">
+                    <div class="form-group">
+                        <label for="username">Usuario</label>
+                        <div class="input-group">
+                            <i class="fas fa-user"></i>
+                            <input type="text" id="username" name="username" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Contraseña</label>
+                        <div class="input-group">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="password" name="password" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Iniciar Sesión
+                    </button>
+                </form>
+                <div id="loginError" class="error-message" style="display: none;"></div>
+                <div class="login-demo">
+                    <h4>Cuentas de Demostración:</h4>
+                    <p><strong>Admin:</strong> admin / admin123</p>
+                    <p><strong>Courier:</strong> courier1 / courier123</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pantalla Principal -->
+    <div id="mainScreen" class="screen">
+        <!-- Header -->
+        <header class="main-header">
+            <div class="header-left">
+                <i class="fas fa-truck"></i>
+                <h1>Gestión de Actas</h1>
+            </div>
+            <div class="header-right">
+                <span id="userInfo" class="user-info"></span>
+                <button id="logoutBtn" class="btn btn-secondary">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Cerrar Sesión
+                </button>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="main-nav">
+            <div class="nav-container">
+                <button class="nav-btn active" data-section="dashboard">
+                    <i class="fas fa-chart-dashboard"></i>
+                    Dashboard
+                </button>
+                <button class="nav-btn" data-section="actas">
+                    <i class="fas fa-file-alt"></i>
+                    Actas
+                </button>
+                <button class="nav-btn" data-section="invoices">
+                    <i class="fas fa-receipt"></i>
+                    Facturas
+                </button>
+                <button class="nav-btn" data-section="payments">
+                    <i class="fas fa-credit-card"></i>
+                    Pagos
+                </button>
+                <button class="nav-btn admin-only" data-section="settings">
+                    <i class="fas fa-cog"></i>
+                    Configuración
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Section -->
+            <section id="dashboardSection" class="content-section active">
+                <div class="section-header">
+                    <h2>Dashboard</h2>
+                </div>
+                <div class="dashboard-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalActas">0</h3>
+                            <p>Total Actas</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-receipt"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalInvoices">0</h3>
+                            <p>Facturas</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalBilled">$0</h3>
+                            <p>Total Facturado</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalCollected">$0</h3>
+                            <p>Total Cobrado</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="pendingBalance">$0</h3>
+                            <p>Saldo Pendiente</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Actas Section -->
+            <section id="actasSection" class="content-section">
+                <div class="section-header">
+                    <h2>Gestión de Actas</h2>
+                    <button id="newActaBtn" class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        Nueva Acta
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table id="actasTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Ciudad</th>
+                                <th>Agente</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Invoices Section -->
+            <section id="invoicesSection" class="content-section">
+                <div class="section-header">
+                    <h2>Facturas</h2>
+                </div>
+                <div class="table-container">
+                    <table id="invoicesTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Número</th>
+                                <th>Fecha</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Payments Section -->
+            <section id="paymentsSection" class="content-section">
+                <div class="section-header">
+                    <h2>Pagos</h2>
+                </div>
+                <div class="table-container">
+                    <table id="paymentsTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Factura</th>
+                                <th>Monto</th>
+                                <th>Descripción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section id="settingsSection" class="content-section">
+                <div class="section-header">
+                    <h2>Configuración de Tarifas</h2>
+                </div>
+                <div class="settings-container">
+                    <div class="settings-card">
+                        <h3>Tarifas por Ciudad (USD por pie³)</h3>
+                        <div id="cityRatesContainer" class="city-rates">
+                        </div>
+                        <button id="saveCityRatesBtn" class="btn btn-primary">
+                            <i class="fas fa-save"></i>
+                            Guardar Tarifas
+                        </button>
+                    </div>
+                    <div class="settings-card">
+                        <h3>Añadir Nueva Ciudad</h3>
+                        <form id="addCityForm" class="form-row">
+                            <div class="form-group">
+                                <label for="newCityName">Nombre de la Ciudad</label>
+                                <input type="text" id="newCityName" placeholder="Ej: Puerto La Cruz" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="newCityRate">Tarifa (USD por pie³)</label>
+                                <input type="number" id="newCityRate" step="0.01" placeholder="Ej: 13.5" required>
+                            </div>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-plus"></i> Añadir Ciudad
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal para Nueva Acta -->
+    <div id="actaModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="actaModalTitle">Nueva Acta de Despacho</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="actaForm">
+                    <!-- Header de Acta -->
+                    <div class="form-section">
+                        <h4>Información General</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="fecha">Fecha</label>
+                                <input type="date" id="fecha" name="fecha" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="ciudad">Ciudad</label>
+                                <select id="ciudad" name="ciudad" required>
+                                    <option value="">Seleccionar ciudad</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="agente">Agente/Courier</label>
+                                <input type="text" id="agente" name="agente" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="destino">Destino</label>
+                                <input type="text" id="destino" name="destino">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="modeloCamion">Modelo de Camión</label>
+                                <input type="text" id="modeloCamion" name="modeloCamion">
+                            </div>
+                            <div class="form-group">
+                                <label for="anioCamion">Año</label>
+                                <input type="number" id="anioCamion" name="anioCamion" min="1990" max="2030">
+                            </div>
+                            <div class="form-group">
+                                <label for="placaCamion">Placa</label>
+                                <input type="text" id="placaCamion" name="placaCamion">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="nombreChofer">Chofer - Nombre</label>
+                                <input type="text" id="nombreChofer" name="nombreChofer">
+                            </div>
+                            <div class="form-group">
+                                <label for="telefonoChofer">Chofer - Teléfono</label>
+                                <input type="tel" id="telefonoChofer" name="telefonoChofer">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="nombreAyudante">Ayudante - Nombre</label>
+                                <input type="text" id="nombreAyudante" name="nombreAyudante">
+                            </div>
+                            <div class="form-group">
+                                <label for="telefonoAyudante">Ayudante - Teléfono</label>
+                                <input type="tel" id="telefonoAyudante" name="telefonoAyudante">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detalle de Guías -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <h4>Detalle de Guías</h4>
+                            <button type="button" id="addGuideBtn" class="btn btn-secondary">
+                                <i class="fas fa-plus"></i>
+                                Agregar Guía
+                            </button>
+                        </div>
+                        <div class="table-container">
+                            <table id="guidesTable" class="guides-table">
+                                <thead>
+                                    <tr>
+                                        <th>No. Guía</th>
+                                        <th>Cliente</th>
+                                        <th>Dirección</th>
+                                        <th>Teléfono</th>
+                                        <th>Bultos</th>
+                                        <th>Pies³</th>
+                                        <th>Kgs</th>
+                                        <th>Vía</th>
+                                        <th>Subtotal</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="total-section">
+                            <strong>Total General: $<span id="totalGeneral">0.00</span></strong>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelActaBtn">Cancelar</button>
+                <button type="submit" form="actaForm" class="btn btn-primary">Guardar Acta</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Pagos -->
+    <div id="paymentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Registrar Pago</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="paymentForm">
+                    <input type="hidden" id="paymentInvoiceId" name="invoiceId">
+                    <div class="form-group">
+                        <label for="paymentAmount">Monto del Pago</label>
+                        <input type="number" id="paymentAmount" name="amount" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="paymentDescription">Descripción</label>
+                        <textarea id="paymentDescription" name="description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary modal-close">Cancelar</button>
+                <button type="submit" form="paymentForm" class="btn btn-primary">Registrar Pago</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay">
+        <div class="loader"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/app.js"></script>
+</body>
+</html>
+
