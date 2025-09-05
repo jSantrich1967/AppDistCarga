@@ -5,9 +5,6 @@ services:
     plan: free
     buildCommand: "npm install && cd backend && npm install"
     startCommand: "node backend/server-clean.js"
-    databases:
-      - name: app-dist-carga-db
-        property: connectionString
     envVars:
       - key: NODE_ENV
         value: production
