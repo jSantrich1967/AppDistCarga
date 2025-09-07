@@ -552,6 +552,8 @@ const App = {
     // API Calls
     apiCall: async function(endpoint, options = {}) {
         const token = localStorage.getItem('token');
+        const finalEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
+
         const headers = {
             'Content-Type': 'application/json',
             ...options.headers,
@@ -563,37 +565,33 @@ const App = {
 
         const config = {
             headers,
-            credentials: 'include',
             ...options
         };
         
         try {
-        const response = await fetch(`${API_BASE}${endpoint}`, config);
+            const response = await fetch(`${API_BASE}/${finalEndpoint}`, config);
         
-        if (!response.ok) {
+            if (!response.ok) {
                 let errorMessage = `Error ${response.status}: ${response.statusText}`;
                 try {
                     const errorData = await response.json();
                     errorMessage = errorData.message || errorData.error || errorMessage;
                 } catch (e) {
-                    // Si no se puede parsear el JSON de error, usar el statusText
                     console.warn('No se pudo parsear la respuesta de error:', e);
                 }
                 throw new Error(errorMessage);
-        }
+            }
         
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.indexOf("application/json") !== -1) {
-            return response.json();
-        } else {
-            return response.text();
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") !== -1) {
+                return response.json();
+            } else {
+                return response.text();
             }
         } catch (error) {
-            // Si es un error de red o de fetch
             if (error.name === 'TypeError' && error.message.includes('fetch')) {
                 throw new Error('Error de conexión: No se pudo conectar al servidor');
             }
-            // Re-lanzar otros errores tal como están
             throw error;
         }
     },
