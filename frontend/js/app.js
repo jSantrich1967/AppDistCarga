@@ -365,13 +365,7 @@ const App = {
         document.getElementById('userInfo').textContent = 
             `${currentUser.fullName} (${isAdmin ? 'Administrador' : 'Agente/Cliente'})`;
         
-        // DEBUG: Mostrar estado del token
-        const token = localStorage.getItem('token');
-        document.getElementById('token-debug').textContent = `Token: ${token ? 'EXISTE' : 'NO EXISTE'}`;
         
-        // DEBUG: Mostrar estado del token
-        const token = localStorage.getItem('token');
-        document.getElementById('token-debug').textContent = `Token: ${token ? 'EXISTE' : 'NO EXISTE'}`;
         
         // Configurar visibilidad de elementos según rol
         App.configureElementVisibility(isAdmin);
