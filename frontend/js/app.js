@@ -266,28 +266,20 @@ const App = {
     },
 
     validateToken: async function() {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            App.showLoginScreen();
+            return;
+        }
+
         try {
-            const response = await fetch(`${API_BASE}/dashboard`, { credentials: 'include' });
-            if (response.ok) {
-                // El endpoint /dashboard devuelve estadísticas, pero si responde exitosamente 
-                // significa que el token es válido. Necesitamos obtener los datos del usuario de otra forma
-                // Por ahora, asumiremos que si el dashboard responde, el usuario está autenticado
-                // Pero necesitamos un endpoint específico para obtener datos del usuario
-                const response2 = await fetch(`${API_BASE}/user-profile`, { credentials: 'include' });
-                if (response2.ok) {
-                    const userData = await response2.json();
-                    currentUser = userData.user;
-                } else {
-                    // Si el perfil de usuario falla, no podemos saber el rol del usuario.
-                    // Es más seguro cerrar la sesión.
-                    throw new Error('No se pudo obtener el perfil del usuario.');
-                }
-                App.showMainScreen();
-            } else {
-                App.showLoginScreen();
-            }
+            // Usar apiCall que ya envía el token correctamente.
+            const data = await App.apiCall('/user-profile'); 
+            currentUser = data.user;
+            App.showMainScreen();
         } catch (error) {
-            console.error('Error validating token:', error);
+            console.error('Token validation failed:', error);
+            localStorage.removeItem('token'); // Limpiar token inválido
             App.showLoginScreen();
         }
     },
