@@ -68,6 +68,20 @@ async function initializeDatabase() {
             );
         `);
         console.log('✅ Base de datos inicializada exitosamente');
+
+        // Seed admin user if no users exist
+        const res = await client.query('SELECT COUNT(*) as count FROM users');
+        if (res.rows[0].count === '0') {
+            console.log('No users found. Creating default admin user...');
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash('1234', salt);
+            await client.query(
+                'INSERT INTO users (username, password, role, full_name) VALUES ($1, $2, $3, $4)',
+                ['admin', hashedPassword, 'admin', 'Admin User']
+            );
+            console.log('✅ Default admin user created (admin/1234)');
+        }
+
     } catch (error) {
         console.error('❌ Error inicializando base de datos:', error);
     } finally {
