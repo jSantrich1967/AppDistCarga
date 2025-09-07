@@ -267,15 +267,11 @@ const App = {
 
     validateToken: async function() {
         const token = localStorage.getItem('token');
-        if (!token) {
-            App.showLoginScreen();
-            return;
-        }
 
         try {
             // Usar apiCall que ya envía el token correctamente.
             const data = await App.apiCall('/user-profile'); 
-            currentUser = data.user;
+                currentUser = data.user;
             App.showMainScreen();
         } catch (error) {
             console.error('Token validation failed:', error);
@@ -368,6 +364,14 @@ const App = {
         // Actualizar información del usuario
         document.getElementById('userInfo').textContent = 
             `${currentUser.fullName} (${isAdmin ? 'Administrador' : 'Agente/Cliente'})`;
+        
+        // DEBUG: Mostrar estado del token
+        const token = localStorage.getItem('token');
+        document.getElementById('token-debug').textContent = `Token: ${token ? 'EXISTE' : 'NO EXISTE'}`;
+        
+        // DEBUG: Mostrar estado del token
+        const token = localStorage.getItem('token');
+        document.getElementById('token-debug').textContent = `Token: ${token ? 'EXISTE' : 'NO EXISTE'}`;
         
         // Configurar visibilidad de elementos según rol
         App.configureElementVisibility(isAdmin);
@@ -562,6 +566,7 @@ const App = {
         
         try {
             const response = await fetch(`${API_BASE}/${finalEndpoint}`, config);
+            console.log('Raw API Response:', response); // Log the raw response
         
             if (!response.ok) {
                 let errorMessage = `Error ${response.status}: ${response.statusText}`;
