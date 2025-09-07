@@ -354,8 +354,9 @@ const App = {
 
     // Nueva función para configurar la UI según el rol
     setupUserInterface: function() {
-        const isAdmin = currentUser.role === 'admin';
-        const isCourier = currentUser.role === 'courier';
+        const userRole = currentUser && currentUser.role ? currentUser.role : 'guest';
+        const isAdmin = userRole === 'admin';
+        const isCourier = userRole === 'courier';
         
         // Configurar clases CSS para styling
         document.body.classList.toggle('admin', isAdmin);
