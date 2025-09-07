@@ -203,6 +203,78 @@ app.get('/api/actas/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// CRUD para Agentes
+app.post('/api/agents', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
+    try {
+        const { name } = req.body;
+        if (!name) {
+            return res.status(400).json({ error: 'El nombre es requerido' });
+        }
+        const result = await pool.query('INSERT INTO agents (name) VALUES ($1) RETURNING *', [name]);
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error creando agente:', error);
+        res.status(500).json({ error: 'Error creando agente' });
+    }
+});
+
+app.get('/api/agents', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM agents ORDER BY name');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error obteniendo agentes:', error);
+        res.status(500).json({ error: 'Error obteniendo agentes' });
+    }
+});
+
+app.delete('/api/agents/:id', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
+    try {
+        const { id } = req.params;
+        await pool.query('DELETE FROM agents WHERE id = $1', [id]);
+        res.status(204).send();
+    } catch (error) {
+        console.error('Error eliminando agente:', error);
+        res.status(500).json({ error: 'Error eliminando agente' });
+    }
+});
+
+// CRUD para Ciudades y Tarifas
+app.post('/api/city_rates', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
+    try {
+        const { city, rate } = req.body;
+        if (!city || !rate) {
+            return res.status(400).json({ error: 'La ciudad y la tarifa son requeridas' });
+        }
+        const result = await pool.query('INSERT INTO city_rates (city, rate) VALUES ($1, $2) RETURNING *', [city, rate]);
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error creando ciudad/tarifa:', error);
+        res.status(500).json({ error: 'Error creando ciudad/tarifa' });
+    }
+});
+
+app.get('/api/city_rates', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM city_rates ORDER BY city');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error obteniendo ciudades/tarifas:', error);
+        res.status(500).json({ error: 'Error obteniendo ciudades/tarifas' });
+    }
+});
+
+app.delete('/api/city_rates/:id', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
+    try {
+        const { id } = req.params;
+        await pool.query('DELETE FROM city_rates WHERE id = $1', [id]);
+        res.status(204).send();
+    } catch (error) {
+        console.error('Error eliminando ciudad/tarifa:', error);
+        res.status(500).json({ error: 'Error eliminando ciudad/tarifa' });
+    }
+});
+
 // CRUD para Facturas
 app.post('/api/invoices', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
     try {
