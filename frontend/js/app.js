@@ -271,7 +271,9 @@ const App = {
         try {
             // Usar apiCall que ya envía el token correctamente.
             const data = await App.apiCall('/user-profile'); 
+                console.log('Data from user-profile:', data); 
                 currentUser = data.user;
+                console.log('currentUser after setting:', currentUser);
             App.showMainScreen();
         } catch (error) {
             console.error('Token validation failed:', error);
