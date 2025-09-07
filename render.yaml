@@ -8,7 +8,3 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-
-databases:
-  - name: app-dist-carga-db
-    plan: free
