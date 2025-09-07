@@ -375,7 +375,7 @@ const App = {
         
         // Actualizar información del usuario
         document.getElementById('userInfo').textContent = 
-            `${currentUser.name} (${isAdmin ? 'Administrador' : 'Agente/Cliente'})`;
+            `${currentUser.fullName} (${isAdmin ? 'Administrador' : 'Agente/Cliente'})`;
         
         // Configurar visibilidad de elementos según rol
         App.configureElementVisibility(isAdmin);
