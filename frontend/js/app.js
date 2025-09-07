@@ -820,11 +820,15 @@ const App = {
     // City Rates
     loadCityRates: async function() {
         try {
-            cityRates = await App.apiCall('/city-rates');
+            // La API ahora devuelve un array de objetos: [{id, city, rate}]
+            const ratesArray = await App.apiCall('/api/city_rates');
+            // Guardamos el array directamente. Ya no es un objeto.
+            cityRates = ratesArray;
             App.updateCityRatesUI();
             App.updateCitySelects();
         } catch (error) {
             console.error('Error loading city rates:', error);
+            Toast.error('No se pudieron cargar las tarifas de las ciudades.');
         }
     },
 
@@ -832,28 +836,23 @@ const App = {
         const container = document.getElementById('cityRatesContainer');
         container.innerHTML = '';
         
-        Object.entries(cityRates).forEach(([city, rate]) => {
+        // Iteramos sobre el array de objetos
+        cityRates.forEach(rateData => {
             const div = document.createElement('div');
             div.className = 'city-rate-item';
             div.innerHTML = `
-                <label>${city}:</label>
-                <input type="number" step="0.01" value="${rate}" data-city="${city}">
-                <span>USD por pie³</span>
+                <span>${rateData.city}</span>
+                <span>${rateData.rate} USD por pie³</span>
+                <button class="btn btn-danger btn-sm" onclick="App.deleteCity('${rateData.id}')"><i class="fas fa-trash"></i></button>
             `;
-
-            const deleteButton = document.createElement('button');
-            deleteButton.className = 'btn btn-danger btn-sm';
-            deleteButton.innerHTML = '<i class="fas fa-trash"></i>';
-            deleteButton.onclick = () => App.deleteCity(city);
-            
-            div.appendChild(deleteButton);
             container.appendChild(div);
         });
     },
 
     updateCitySelects: function() {
         const selects = document.querySelectorAll('select[name="ciudad"]');
-        const cityOptions = Object.keys(cityRates).map(city => `<option value="${city}">${city}</option>`).join('');
+        // Mapeamos el array para crear las opciones
+        const cityOptions = cityRates.map(rateData => `<option value="${rateData.city}">${rateData.city}</option>`).join('');
         
         selects.forEach(select => {
             const currentValue = select.value;
@@ -862,28 +861,10 @@ const App = {
         });
     },
 
-    saveCityRates: async function() {
-        try {
-            const inputs = document.querySelectorAll('#cityRatesContainer input');
-            const newRates = {};
-            inputs.forEach(input => {
-                newRates[input.dataset.city] = parseFloat(input.value) || 0;
-            });
-            
-            await App.apiCall('/city-rates', {
-                method: 'PUT',
-                body: JSON.stringify(newRates)
-            });
-            
-            cityRates = newRates;
-            alert('Tarifas guardadas exitosamente');
-        } catch (error) {
-            console.error('Error saving city rates:', error);
-            alert('Error al guardar tarifas');
-        }
-    },
+    // La función saveCityRates ya no es necesaria con este modelo
+    // La eliminamos para evitar confusión.
 
-    handleAddCity: function(e) {
+    handleAddCity: async function(e) {
         e.preventDefault();
         const nameInput = document.getElementById('newCityName');
         const rateInput = document.getElementById('newCityRate');
@@ -891,29 +872,52 @@ const App = {
         const rate = parseFloat(rateInput.value);
 
         if (!name || isNaN(rate)) {
-            alert('Por favor, introduce un nombre y una tarifa válidos.');
+            Toast.warning('Por favor, introduce un nombre y una tarifa válidos.');
             return;
         }
 
-        const cityExists = Object.keys(cityRates).some(
-            key => key.toLowerCase() === name.toLowerCase()
+        const cityExists = cityRates.some(
+            rateData => rateData.city.toLowerCase() === name.toLowerCase()
         );
 
         if (cityExists) {
-            alert(`La ciudad "${name}" ya existe.`);
+            Toast.error(`La ciudad "${name}" ya existe.`);
             return;
         }
 
-        cityRates[name] = rate;
-        App.updateCityRatesUI();
-        nameInput.value = '';
-        rateInput.value = '';
+        try {
+            App.showLoading(true);
+            await App.apiCall('/api/city_rates', {
+                method: 'POST',
+                body: JSON.stringify({ city: name, rate: rate })
+            });
+            nameInput.value = '';
+            rateInput.value = '';
+            Toast.success('Ciudad añadida exitosamente');
+            await App.loadCityRates(); // Recargar la lista desde el servidor
+        } catch (error) {
+            console.error('Error adding city:', error);
+            Toast.error('Error al añadir la ciudad: ' + error.message);
+        } finally {
+            App.showLoading(false);
+        }
     },
 
-    deleteCity: function(cityName) {
-        if (confirm(`¿Estás seguro de que quieres eliminar la ciudad "${cityName}"?`)) {
-            delete cityRates[cityName];
-            App.updateCityRatesUI();
+    deleteCity: async function(cityId) {
+        if (confirm('¿Estás seguro de que quieres eliminar esta ciudad?')) {
+            try {
+                App.showLoading(true);
+                await App.apiCall(`/api/city_rates/${cityId}`, {
+                    method: 'DELETE'
+                });
+                Toast.success('Ciudad eliminada exitosamente');
+                await App.loadCityRates(); // Recargar la lista desde el servidor
+            } catch (error) {
+                console.error('Error deleting city:', error);
+                Toast.error('Error al eliminar la ciudad: ' + error.message);
+            } finally {
+                App.showLoading(false);
+            }
         }
     },
 
