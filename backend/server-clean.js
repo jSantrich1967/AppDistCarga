@@ -12,21 +12,7 @@ console.log('📦 Servidor con base de datos PostgreSQL - v3 - Manual Connection
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'tu-secreto-super-seguro-aqui';
 
-// Construir DATABASE_URL manualmente desde las variables de Render
-const PGHOST = process.env.PGHOST;
-const PGUSER = process.env.PGUSER;
-const PGPASSWORD = process.env.PGPASSWORD;
-const PGDATABASE = process.env.PGDATABASE;
-const PGPORT = process.env.PGPORT;
-
-console.log('PGHOST:', PGHOST);
-console.log('PGUSER:', PGUSER);
-console.log('PGDATABASE:', PGDATABASE);
-console.log('PGPORT:', PGPORT);
-
-const DATABASE_URL = `postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}`;
-
-console.log('Constructed DATABASE_URL:', DATABASE_URL.replace(PGPASSWORD, '********'));
+const DATABASE_URL = process.env.DATABASE_URL;
 
 // Configuración de la base de datos
 const pool = new Pool({
