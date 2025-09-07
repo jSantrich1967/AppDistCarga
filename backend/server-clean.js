@@ -275,6 +275,31 @@ app.delete('/api/city_rates/:id', authenticateToken, authorizeRoles(['admin']), 
     }
 });
 
+app.put('/api/city_rates/:id', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { rate } = req.body;
+
+        if (rate === undefined || isNaN(parseFloat(rate))) {
+            return res.status(400).json({ error: 'La tarifa es requerida y debe ser un número.' });
+        }
+
+        const result = await pool.query(
+            'UPDATE city_rates SET rate = $1 WHERE id = $2 RETURNING *',
+            [rate, id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Ciudad no encontrada' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error actualizando ciudad/tarifa:', error);
+        res.status(500).json({ error: 'Error actualizando ciudad/tarifa' });
+    }
+});
+
 // CRUD para Facturas
 app.post('/api/invoices', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
     try {

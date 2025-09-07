@@ -836,13 +836,15 @@ const App = {
         const container = document.getElementById('cityRatesContainer');
         container.innerHTML = '';
         
-        // Iteramos sobre el array de objetos
         cityRates.forEach(rateData => {
             const div = document.createElement('div');
             div.className = 'city-rate-item';
             div.innerHTML = `
-                <span>${rateData.city}</span>
-                <span>${rateData.rate} USD por pie³</span>
+                <span class="city-name">${rateData.city}</span>
+                <div class="rate-input-group">
+                    <input type="number" step="0.01" value="${rateData.rate}" id="rate-input-${rateData.id}">
+                    <button class="btn btn-primary btn-sm" onclick="App.handleUpdateCityRate('${rateData.id}')">Guardar</button>
+                </div>
                 <button class="btn btn-danger btn-sm" onclick="App.deleteCity('${rateData.id}')"><i class="fas fa-trash"></i></button>
             `;
             container.appendChild(div);
@@ -859,6 +861,31 @@ const App = {
             select.innerHTML = `<option value="">Seleccionar ciudad</option>${cityOptions}`;
             select.value = currentValue;
         });
+    },
+
+    handleUpdateCityRate: async function(cityId) {
+        const rateInput = document.getElementById(`rate-input-${cityId}`);
+        const newRate = parseFloat(rateInput.value);
+
+        if (isNaN(newRate)) {
+            Toast.warning('Por favor, introduce una tarifa válida.');
+            return;
+        }
+
+        try {
+            App.showLoading(true);
+            await App.apiCall(`/api/city_rates/${cityId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ rate: newRate })
+            });
+            Toast.success('Tarifa actualizada exitosamente');
+            await App.loadCityRates(); // Recargar para asegurar consistencia
+        } catch (error) {
+            console.error('Error updating city rate:', error);
+            Toast.error('Error al actualizar la tarifa: ' + error.message);
+        } finally {
+            App.showLoading(false);
+        }
     },
 
     // La función saveCityRates ya no es necesaria con este modelo
