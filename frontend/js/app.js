@@ -1698,7 +1698,8 @@ const App = {
     },
 
     calculateSubtotal: function(piesCubicos, ciudad) {
-        const rate = cityRates[ciudad] || 0;
+        const rateData = cityRates.find(r => r.city === ciudad);
+        const rate = rateData ? rateData.rate : 0;
         return (parseFloat(piesCubicos) || 0) * rate;
     },
 
@@ -1707,12 +1708,15 @@ const App = {
         const guidesTable = document.querySelector('#guidesTable tbody');
         const ciudadSelect = document.querySelector('#actaForm [name="ciudad"]');
         const ciudad = ciudadSelect ? ciudadSelect.value : '';
-        const rate = cityRates[ciudad] || 0;
+        
+        const rateData = cityRates.find(r => r.city === ciudad);
+        const rate = rateData ? rateData.rate : 0;
+
         let total = 0;
         let guidesCount = 0;
         let totalPiesCubicos = 0;
         
-        console.log(`🧮 Calculando total - Ciudad: ${ciudad}, Tarifa: $${rate}`);
+        console.log(`🧮 Calculando total - Ciudad: ${ciudad}, Tarifa: ${rate}`);
         
         if (!guidesTable) {
             console.warn('⚠️ Tabla de guías no encontrada');
@@ -1730,9 +1734,12 @@ const App = {
                 
                 // Usar tarifa de la ciudad del acta o del destino de la guía
                 let tarifaUsada = rate;
-                if (!tarifaUsada && destino && cityRates[destino]) {
-                    tarifaUsada = cityRates[destino];
-                    console.log(`🎯 Usando tarifa de destino ${destino}: $${tarifaUsada}`);
+                if (!tarifaUsada && destino) {
+                    const destinoRateData = cityRates.find(r => r.city === destino);
+                    if (destinoRateData) {
+                        tarifaUsada = destinoRateData.rate;
+                        console.log(`🎯 Usando tarifa de destino ${destino}: ${tarifaUsada}`);
+                    }
                 }
                 
                 const subtotal = piesCubicos * tarifaUsada;
@@ -1740,11 +1747,11 @@ const App = {
                 totalPiesCubicos += piesCubicos;
                 guidesCount++;
                 
-                console.log(`📋 Guía ${index + 1}: ${piesCubicos} pies³ × $${tarifaUsada} = $${subtotal.toFixed(2)}`);
+                console.log(`📋 Guía ${index + 1}: ${piesCubicos} pies³ × ${tarifaUsada} = ${subtotal.toFixed(2)}`);
             }
         });
         
-        console.log(`📊 Resumen: ${guidesCount} guías, ${totalPiesCubicos} pies³ total, Total: $${total.toFixed(2)}`);
+        console.log(`📊 Resumen: ${guidesCount} guías, ${totalPiesCubicos} pies³ total, Total: ${total.toFixed(2)}`);
         
         const totalElement = document.getElementById('totalGeneral');
         if (totalElement) {
