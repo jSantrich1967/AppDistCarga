@@ -402,6 +402,12 @@ app.get('/api/dashboard', authenticateToken, async (req, res) => {
 });
 
 
+// Ruta para obtener el perfil del usuario autenticado
+app.get('/api/user-profile', authenticateToken, (req, res) => {
+    // req.user es establecido por el middleware authenticateToken
+    res.json({ user: req.user });
+});
+
 // Ruta para servir la aplicación (debe ir al final)
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
