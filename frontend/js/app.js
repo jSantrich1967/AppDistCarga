@@ -360,6 +360,73 @@ const App = {
         App.showSection('dashboard'); // Mostrar el dashboard después de cargar los datos
     },
 
+    // Utilidades generales
+    formatDate: function(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d)) return dateStr;
+        return d.toLocaleDateString('es-VE', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    },
+
+    getStatusText: function(status) {
+        const map = {
+            pending: 'Pendiente',
+            generated: 'Generada',
+            paid: 'Pagada',
+            active: 'Activa',
+            cancelled: 'Anulada'
+        };
+        return map[status] || status || 'Pendiente';
+    },
+
+    setupDragAndDrop: function() {
+        // No-op básico para evitar errores si no hay elementos de DnD.
+        // Podremos ampliar esta funcionalidad más adelante si es necesario.
+        return;
+    },
+
+    // Cargar facturas y renderizar tabla
+    loadInvoices: async function() {
+        try {
+            const invoices = await App.apiCall('/invoices');
+            const tbody = document.querySelector('#invoicesTable tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (!Array.isArray(invoices) || invoices.length === 0) {
+                const row = tbody.insertRow();
+                row.innerHTML = '<td colspan="7" style="text-align:center; padding: 16px; color: #666;">No hay facturas</td>';
+                return;
+            }
+
+            invoices.forEach(inv => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${inv.numero || inv.id}</td>
+                    <td>${App.formatDate(inv.fecha)}</td>
+                    <td>${inv.ciudad || '-'}</td>
+                    <td>${inv.numGuides || (inv.guides ? inv.guides.length : 0)}</td>
+                    <td>${(inv.total || 0).toFixed(2)}</td>
+                    <td>${App.getStatusText(inv.status || 'pending')}</td>
+                    <td>
+                        <button class="btn btn-info btn-sm" onclick="alert('Vista de factura no implementada');" title="Ver">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                `;
+            });
+        } catch (error) {
+            console.error('Error loading invoices:', error);
+        }
+    },
+
+    // Stub de pagos para evitar errores al navegar a la sección
+    loadPayments: async function() {
+        const tbody = document.querySelector('#paymentsTable tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 16px; color: #666;">Sin datos de pagos</td></tr>';
+    },
+
     // Nueva función para configurar la UI según el rol
     setupUserInterface: function() {
         console.log("Verificando rol de usuario para UI:", currentUser);
