@@ -1487,6 +1487,214 @@ const App = {
         }
     },
 
+    // ======== Importación de Guías (modal de acta) ========
+    showGuidesImport: function() {
+        const section = document.getElementById('guidesImportSection');
+        if (section) section.style.display = 'block';
+    },
+
+    hideGuidesImport: function() {
+        const section = document.getElementById('guidesImportSection');
+        if (section) section.style.display = 'none';
+        const input = document.getElementById('guidesFileInput');
+        if (input) input.value = '';
+        const info = document.getElementById('guidesFileInfo');
+        if (info) info.style.display = 'none';
+        const btn = document.getElementById('processGuidesBtn');
+        if (btn) btn.disabled = true;
+    },
+
+    handleGuidesFileSelection: function(e) {
+        const file = e.target.files[0];
+        const info = document.getElementById('guidesFileInfo');
+        const nameEl = document.getElementById('guidesFileName');
+        const sizeEl = document.getElementById('guidesFileSize');
+        const btn = document.getElementById('processGuidesBtn');
+        if (file) {
+            if (nameEl) nameEl.textContent = file.name;
+            if (sizeEl) sizeEl.textContent = ` (${(file.size/1024).toFixed(1)} KB)`;
+            if (info) info.style.display = 'inline-flex';
+            if (btn) btn.disabled = false;
+        } else {
+            if (info) info.style.display = 'none';
+            if (btn) btn.disabled = true;
+        }
+    },
+
+    processGuidesFile: async function() {
+        try {
+            const input = document.getElementById('guidesFileInput');
+            if (!input || !input.files || input.files.length === 0) {
+                Toast.warning('Selecciona un archivo Excel/CSV primero');
+                return;
+            }
+            const file = input.files[0];
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+            if (!rows.length) {
+                Toast.warning('La hoja está vacía');
+                return;
+            }
+
+            // Normalizar encabezados
+            const toKey = (s) => String(s).trim().toLowerCase();
+
+            // Mapas de columnas esperadas
+            const colMap = {
+                no: ['no', 'no guia', 'n° guia', 'n guia', 'noguia', 'num', 'numero'],
+                cliente: ['cliente', 'nombre cliente'],
+                direccion: ['direccion', 'dirección'],
+                cantDespachada: ['cant despachada', 'bultos', 'cantidad'],
+                piesCubicos: ['pies', 'pies cubicos', 'pies cúbicos'],
+                peso: ['peso', 'kgs', 'kilogramos'],
+                via: ['via', 'vía', 'transport']
+            };
+
+            const tbody = document.querySelector('#guidesTable tbody');
+            if (!tbody) {
+                Toast.error('No se encontró la tabla de guías');
+                return;
+            }
+
+            let imported = 0;
+            rows.forEach((row, idx) => {
+                const getByAliases = (aliases) => {
+                    for (const alias of aliases) {
+                        const matchKey = Object.keys(row).find(k => toKey(k) === toKey(alias));
+                        if (matchKey) return row[matchKey];
+                    }
+                    return '';
+                };
+
+                const guide = {
+                    no: getByAliases(colMap.no) || (idx + 1),
+                    cliente: getByAliases(colMap.cliente),
+                    direccion: getByAliases(colMap.direccion),
+                    cantDespachada: getByAliases(colMap.cantDespachada),
+                    piesCubicos: getByAliases(colMap.piesCubicos),
+                    peso: getByAliases(colMap.peso),
+                    via: (getByAliases(colMap.via) || 'terrestre').toString().toLowerCase(),
+                };
+
+                // Crear fila usando el mismo formato que addGuideRow
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><input type="text" name="no" value="${guide.no}" style="width:80px"></td>
+                    <td><input type="text" name="warehouse" style="width:120px"></td>
+                    <td><input type="text" name="file" style="width:120px"></td>
+                    <td><input type="text" name="origen" style="width:120px"></td>
+                    <td>
+                        <select name="via">
+                            <option value="terrestre" ${guide.via.includes('terr') ? 'selected' : ''}>Terrestre</option>
+                            <option value="aereo" ${guide.via.includes('aer') ? 'selected' : ''}>Aéreo</option>
+                            <option value="maritimo" ${guide.via.includes('mar') ? 'selected' : ''}>Marítimo</option>
+                        </select>
+                    </td>
+                    <td><input type="text" name="cliente" value="${guide.cliente}" style="width:160px"></td>
+                    <td><input type="text" name="embarcador" style="width:160px"></td>
+                    <td><input type="number" name="cantTeorica" min="0" step="1" style="width:100px"></td>
+                    <td><input type="number" name="cantDespachada" value="${guide.cantDespachada}" min="0" step="1" style="width:120px"></td>
+                    <td><input type="number" name="piesCubicos" value="${guide.piesCubicos}" min="0" step="0.01" style="width:120px"></td>
+                    <td><input type="number" name="peso" value="${guide.peso}" min="0" step="0.01" style="width:100px"></td>
+                    <td><input type="text" name="destino" style="width:140px"></td>
+                    <td><input type="text" name="direccion" value="${guide.direccion}" style="width:180px"></td>
+                    <td><button type="button" class="btn btn-danger btn-sm">Eliminar</button></td>
+                `;
+                tr.querySelectorAll('input[name="piesCubicos"], select[name="via"]').forEach(el => {
+                    el.addEventListener('input', App.updateTotal);
+                    el.addEventListener('change', App.updateTotal);
+                });
+                tr.querySelector('button').addEventListener('click', function() {
+                    tr.remove();
+                    App.updateTotal();
+                });
+                tbody.appendChild(tr);
+                imported++;
+            });
+
+            App.updateTotal();
+            Toast.success(`Se importaron ${imported} guías`);
+            App.hideGuidesImport();
+        } catch (error) {
+            console.error('Error importando guías:', error);
+            Toast.error('No se pudo importar el archivo: ' + error.message);
+        }
+    },
+
+    generateExcelTemplate: function() {
+        const data = [
+            {
+                'No Guia': 'VLC001',
+                'Cliente': 'Empresa A',
+                'Direccion': 'Av. Principal #123',
+                'Bultos': 3,
+                'Pies': 12.5,
+                'Kgs': 50,
+                'Via': 'Terrestre'
+            }
+        ];
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Guias');
+        XLSX.writeFile(wb, 'plantilla_guias.xlsx');
+    },
+
+    downloadCSVTemplate: function() {
+        const headers = ['No Guia', 'Cliente', 'Direccion', 'Bultos', 'Pies', 'Kgs', 'Via'];
+        const sample = ['VLC001', 'Empresa A', 'Av. Principal #123', '3', '12.5', '50', 'Terrestre'];
+        const csv = headers.join(',') + '\n' + sample.map(v => `"${v}"`).join(',') + '\n';
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'plantilla_guias.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    },
+
+    // ======== Importación Excel general (sección superior) ========
+    handleFileSelection: function(e) {
+        const file = e.target.files[0];
+        const info = document.getElementById('selectedFileInfo');
+        const nameEl = document.getElementById('fileName');
+        const sizeEl = document.getElementById('fileSize');
+        const btn = document.getElementById('processExcelBtn');
+        if (file) {
+            if (nameEl) nameEl.textContent = file.name;
+            if (sizeEl) sizeEl.textContent = `${(file.size/1024).toFixed(1)} KB`;
+            if (info) info.style.display = 'block';
+            if (btn) btn.disabled = false;
+        } else {
+            if (info) info.style.display = 'none';
+            if (btn) btn.disabled = true;
+        }
+    },
+
+    processExcelFile: async function() {
+        try {
+            const input = document.getElementById('excelFileInput');
+            if (!input || !input.files || input.files.length === 0) {
+                Toast.warning('Selecciona un archivo Excel');
+                return;
+            }
+            const file = input.files[0];
+            const data = await file.arrayBuffer();
+            const wb = XLSX.read(data, { type: 'array' });
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+            Toast.info(`Archivo leído: ${rows.length} filas`);
+        } catch (error) {
+            console.error('Error leyendo Excel:', error);
+            Toast.error('No se pudo leer el Excel: ' + error.message);
+        }
+    },
+
 };
 
 document.addEventListener('DOMContentLoaded', App.initializeApp);
