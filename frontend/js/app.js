@@ -1330,4 +1330,4 @@ const App = {
                 
                 console.log(`📋 Guía ${index + 1}:`, displayGuide);
                 
-                return `<tr><td>TEST</td></tr>`;
+                return "<tr><td>SIMPLIFIED TEST</td></tr>";
