@@ -1307,39 +1307,74 @@ const App = {
     },
 
     showActaDetailsModal: function(acta) {
-        // Crear modal de detalles
         const modal = document.createElement('div');
         modal.className = 'modal active';
         modal.id = 'actaDetailsModal';
-        
-        // Generar filas de guías con controles de estado (usando nuevos campos profesionales)
-        let guidesHTML = '';
-        if (acta.guides && acta.guides.length > 0) {
-            console.log('📦 Mostrando guías del acta:', acta.guides);
-            guidesHTML = acta.guides.map((guide, index) => {
-                const status = guide.status || 'En Almacén';
-                
-                // Mapear campos antiguos a nuevos si es necesario
-                const displayGuide = {
-                    no: guide.no || guide.noGuia || (index + 1),
-                    warehouse: guide.warehouse || guide.almacen || '-',
-                    file: guide.file || guide.expediente || '-',
-                    cliente: guide.cliente || guide.nombreCliente || '-',
-                    direccion: guide.direccion || '-',
-                    cantDespachada: guide.cantDespachada || guide.bultos || guide.cantidad || 0,
-                    piesCubicos: guide.piesCubicos || guide.pies || 0,
-                    peso: guide.peso || guide.kgs || 0,
-                    via: guide.via || 'terrestre',
-                    subtotal: guide.subtotal || 0
-                };
-                
-                console.log(`📋 Guía ${index + 1}:`, displayGuide);
-                
-                return "<tr><td>SIMPLIFIED TEST</td></tr>";
-            }).join('');
-        }
-        modal.innerHTML = '<div class="modal-content"><div class="modal-header"><h3>Detalles del Acta</h3><button class="modal-close">×</button></div><div class="modal-body"><table><tbody>' + guidesHTML + '</tbody></table></div></div>';
+
+        const header = `
+            <div class="modal-header">
+                <h3>Acta ${acta.id} - ${App.formatDate(acta.fecha)} (${acta.ciudad})</h3>
+                <button class="modal-close">×</button>
+            </div>
+        `;
+
+        const tableHeader = `
+            <thead>
+                <tr>
+                    <th>No</th>
+                    <th>WAREHOUSE</th>
+                    <th>FILE</th>
+                    <th>ORIGEN</th>
+                    <th>VIA</th>
+                    <th>CLIENTE</th>
+                    <th>EMBARCADOR</th>
+                    <th>CANT. TEORICA</th>
+                    <th>CANT. DESPACH.</th>
+                    <th>PIES CUBICOS</th>
+                    <th>PESO</th>
+                    <th>DESTINO</th>
+                    <th>DIRECCION</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+        `;
+
+        const guidesHTML = (acta.guides || []).map((g, i) => {
+            return `
+                <tr>
+                    <td>${g.no || i + 1}</td>
+                    <td>${g.warehouse || ''}</td>
+                    <td>${g.file || ''}</td>
+                    <td>${g.origen || ''}</td>
+                    <td>${g.via || ''}</td>
+                    <td>${g.cliente || ''}</td>
+                    <td>${g.embarcador || ''}</td>
+                    <td>${g.cantTeorica || 0}</td>
+                    <td>${g.cantDespachada || 0}</td>
+                    <td>${(parseFloat(g.piesCubicos) || 0).toFixed(2)}</td>
+                    <td>${(parseFloat(g.peso) || 0).toFixed(2)}</td>
+                    <td>${g.destino || ''}</td>
+                    <td>${g.direccion || ''}</td>
+                    <td>${(parseFloat(g.subtotal) || 0).toFixed(2)}</td>
+                </tr>
+            `;
+        }).join('');
+
+        const body = `
+            <div class="modal-body">
+                <table class="guides-table">
+                    ${tableHeader}
+                    <tbody>${guidesHTML}</tbody>
+                </table>
+            </div>
+        `;
+
+        modal.innerHTML = `<div class="modal-content">${header}${body}</div>`;
         document.body.appendChild(modal);
+
+        // Cerrar modal
+        modal.querySelector('.modal-close').addEventListener('click', App.closeModals);
+        modal.addEventListener('click', (e) => { if (e.target === modal) App.closeModals(); });
     },
 
     // Añadir una fila de guía al formulario
@@ -1471,17 +1506,47 @@ const App = {
                 status: 'pending'
             };
 
-            await App.apiCall('/actas', {
+            const created = await App.apiCall('/actas', {
                 method: 'POST',
                 body: JSON.stringify(actaData)
             });
 
             Toast.success('Acta creada exitosamente');
+            // Generar factura automáticamente si es admin
+            try {
+                if (currentUser && currentUser.role === 'admin' && created && created.id) {
+                    await App.generateInvoice(created.id);
+                }
+            } catch (e) {
+                console.warn('No se generó factura automáticamente:', e);
+            }
             App.closeModals();
             await App.loadActas();
         } catch (error) {
             console.error('Error al crear acta:', error);
             Toast.error('No se pudo crear el acta: ' + error.message);
+        } finally {
+            App.showLoading(false);
+        }
+    },
+
+    // Generar factura para un acta
+    generateInvoice: async function(actaId) {
+        try {
+            App.showLoading(true);
+            const invoice = await App.apiCall('/invoices', {
+                method: 'POST',
+                body: JSON.stringify({ actaId })
+            });
+            Toast.success(`Factura generada: ${invoice.numero || invoice.id}`);
+            await App.loadActas();
+        } catch (error) {
+            if (String(error.message).includes('403')) {
+                Toast.error('No tienes permisos de administrador para generar facturas');
+            } else {
+                Toast.error('No se pudo generar la factura: ' + error.message);
+            }
+            throw error;
         } finally {
             App.showLoading(false);
         }
