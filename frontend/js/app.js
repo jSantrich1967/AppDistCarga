@@ -1346,4 +1346,7 @@ const App = {
                                 ${App.getStatusText(status)}
                             </span>
                             <br>
-                            <button class="btn-mini btn-status" onclick="App.showGuideStatusModal('${acta.id}', ${index}, ${JSON.stringify(guide).replace(/"/g, '&quot;')})" title="Cambiar Estado">
+                            <button class="btn-mini btn-status" onclick="App.showGuideStatusModal('${acta.id}', ${index}, ${JSON.stringify(guide).replace(/"/g, '&quot;')})">🔄</button>
+                        </td>
+                    </tr>
+                `;
