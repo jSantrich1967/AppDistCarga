@@ -1336,3 +1336,12 @@ const App = {
                 console.log(`📋 Guía ${index + 1}:`, displayGuide);
                 
                 return "<tr><td>SIMPLIFIED TEST</td></tr>";
+            }).join('');
+        }
+        modal.innerHTML = '<div class="modal-content"><div class="modal-header"><h3>Detalles del Acta</h3><button class="modal-close">×</button></div><div class="modal-body"><table><tbody>' + guidesHTML + '</tbody></table></div></div>';
+        document.body.appendChild(modal);
+    },
+
+};
+
+document.addEventListener('DOMContentLoaded', App.initializeApp);
