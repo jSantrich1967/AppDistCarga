@@ -379,6 +379,69 @@ app.get('/api/invoices/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// Pagos
+app.post('/api/payments', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
+    try {
+        const { invoiceId, fecha, monto, concepto, referencia, metodoPago, notas } = req.body;
+        if (!invoiceId || monto === undefined) {
+            return res.status(400).json({ error: 'invoiceId y monto son requeridos' });
+        }
+
+        // Obtener factura actual
+        const invRes = await pool.query('SELECT data FROM invoices WHERE id = $1', [invoiceId]);
+        if (invRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Factura no encontrada' });
+        }
+        const invoice = typeof invRes.rows[0].data === 'string' ? JSON.parse(invRes.rows[0].data) : invRes.rows[0].data;
+
+        const paymentId = Date.now().toString();
+        const payment = {
+            id: paymentId,
+            invoiceId,
+            fecha: fecha || new Date().toISOString().split('T')[0],
+            monto: parseFloat(monto) || 0,
+            concepto: concepto || 'Pago',
+            referencia: referencia || '',
+            metodoPago: metodoPago || 'Transferencia bancaria',
+            notas: notas || '',
+            createdAt: new Date().toISOString()
+        };
+
+        // Actualizar factura (paid y status)
+        const paidPrev = parseFloat(invoice.paid || 0);
+        const total = parseFloat(invoice.total || 0);
+        const paidNew = paidPrev + payment.monto;
+        invoice.paid = paidNew;
+        invoice.status = paidNew >= total ? 'paid' : 'partial';
+
+        // Guardar pago y actualizar factura
+        await pool.query('INSERT INTO payments (id, invoice_id, data) VALUES ($1, $2, $3)', [payment.id, invoiceId, JSON.stringify(payment)]);
+        await pool.query('UPDATE invoices SET data = $1 WHERE id = $2', [JSON.stringify(invoice), invoiceId]);
+
+        res.status(201).json({ payment, invoice });
+    } catch (error) {
+        console.error('Error registrando pago:', error);
+        res.status(500).json({ error: 'Error registrando pago' });
+    }
+});
+
+app.get('/api/payments', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
+    try {
+        const { invoiceId } = req.query;
+        if (invoiceId) {
+            const result = await pool.query('SELECT data FROM payments WHERE invoice_id = $1', [invoiceId]);
+            const payments = result.rows.map(r => (typeof r.data === 'string' ? JSON.parse(r.data) : r.data));
+            return res.json(payments);
+        }
+        const result = await pool.query('SELECT data FROM payments');
+        const payments = result.rows.map(r => (typeof r.data === 'string' ? JSON.parse(r.data) : r.data));
+        res.json(payments);
+    } catch (error) {
+        console.error('Error obteniendo pagos:', error);
+        res.status(500).json({ error: 'Error obteniendo pagos' });
+    }
+});
+
 // Dashboard
 app.get('/api/dashboard', authenticateToken, async (req, res) => {
     try {

@@ -427,6 +427,53 @@ const App = {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 16px; color: #666;">Sin datos de pagos</td></tr>';
     },
 
+    openPaymentModal: async function(invoiceId) {
+        document.getElementById('paymentInvoiceId').value = invoiceId;
+        try {
+            const invoices = await App.apiCall('/invoices');
+            const inv = invoices.find(i => i.id === invoiceId);
+            const info = document.getElementById('paymentInvoiceInfo');
+            if (inv && info) {
+                const paid = inv.paid || 0;
+                const balance = (inv.total || 0) - paid;
+                info.innerHTML = `Factura: <strong>${inv.numero || inv.id}</strong> · Fecha: ${App.formatDate(inv.fecha)} · Total: $${(inv.total||0).toFixed(2)} · Pagado: $${paid.toFixed(2)} · Saldo: $${balance.toFixed(2)}`;
+            }
+        } catch (e) {}
+        document.getElementById('paymentModal').classList.add('active');
+    },
+
+    handlePaymentSubmit: async function(e) {
+        e.preventDefault();
+        try {
+            App.showLoading(true);
+            const invoiceId = document.getElementById('paymentInvoiceId').value;
+            const fecha = document.getElementById('paymentDate').value;
+            const monto = parseFloat(document.getElementById('paymentAmount').value);
+            const concepto = document.getElementById('paymentConcept').value;
+            const referencia = document.getElementById('paymentReference').value;
+            const metodoPago = document.getElementById('paymentMethod').value;
+            const notas = document.getElementById('paymentNotes').value;
+
+            await App.apiCall('/payments', {
+                method: 'POST',
+                body: JSON.stringify({ invoiceId, fecha, monto, concepto, referencia, metodoPago, notas })
+            });
+
+            Toast.success('Pago registrado');
+            App.closeModals();
+            await App.loadAccountsReceivable();
+            await App.loadInvoices();
+        } catch (error) {
+            if (String(error.message).includes('403')) {
+                Toast.error('Solo admin puede registrar pagos');
+            } else {
+                Toast.error('No se pudo registrar el pago: ' + error.message);
+            }
+        } finally {
+            App.showLoading(false);
+        }
+    },
+
     // ======== Cuentas por Cobrar ========
     loadAccountsReceivable: async function() {
         try {
@@ -471,7 +518,7 @@ const App = {
                     <td>${balance.toFixed(2)}</td>
                     <td>${App.daysSince(inv.fecha)}</td>
                     <td>${App.getStatusText(inv.status || 'pending')}</td>
-                    <td><button class="btn btn-primary btn-sm" disabled>Registrar pago</button></td>
+                    <td><button class="btn btn-primary btn-sm" onclick="App.openPaymentModal('${inv.id}')">Registrar pago</button></td>
                 `;
             });
 
