@@ -268,12 +268,17 @@ const App = {
     validateToken: async function() {
         const token = localStorage.getItem('token');
 
+        // Si no hay token, no forzar el reseteo de la pantalla de login
+        if (!token) {
+            return;
+        }
+
         try {
             // Usar apiCall que ya envía el token correctamente.
             const data = await App.apiCall('/user-profile'); 
-                console.log('Data from user-profile:', data); 
-                currentUser = data.user;
-                console.log('currentUser after setting:', currentUser);
+            console.log('Data from user-profile:', data); 
+            currentUser = data.user;
+            console.log('currentUser after setting:', currentUser);
             App.showMainScreen();
         } catch (error) {
             console.error('Token validation failed:', error);
@@ -816,7 +821,7 @@ const App = {
     loadCityRates: async function() {
         try {
             // La API ahora devuelve un array de objetos: [{id, city, rate}]
-            const ratesArray = await App.apiCall('/api/city_rates');
+            const ratesArray = await App.apiCall('/city_rates');
             // Guardamos el array directamente. Ya no es un objeto.
             cityRates = ratesArray;
             App.updateCityRatesUI();
@@ -869,7 +874,7 @@ const App = {
 
         try {
             App.showLoading(true);
-            await App.apiCall(`/api/city_rates/${cityId}`, {
+            await App.apiCall(`/city_rates/${cityId}`, {
                 method: 'PUT',
                 body: JSON.stringify({ rate: newRate })
             });
@@ -914,7 +919,7 @@ const App = {
         try {
             App.showLoading(true);
             console.log("Enviando datos de la nueva ciudad a la API.");
-            const response = await App.apiCall('/api/city_rates', {
+            const response = await App.apiCall('/city_rates', {
                 method: 'POST',
                 body: JSON.stringify({ city: name, rate: rate })
             });
@@ -936,7 +941,7 @@ const App = {
         if (confirm('¿Estás seguro de que quieres eliminar esta ciudad?')) {
             try {
                 App.showLoading(true);
-                await App.apiCall(`/api/city_rates/${cityId}`, {
+                await App.apiCall(`/city_rates/${cityId}`, {
                     method: 'DELETE'
                 });
                 Toast.success('Ciudad eliminada exitosamente');
