@@ -474,6 +474,22 @@ const App = {
                     <td><button class="btn btn-primary btn-sm" disabled>Registrar pago</button></td>
                 `;
             });
+
+            // Aging (0-30,31-60,61-90,+90)
+            const sums = { a030: 0, a3160: 0, a6190: 0, a90p: 0 };
+            pending.forEach(inv => {
+                const paid = inv.paid || 0;
+                const balance = Math.max(0, (inv.total || 0) - paid);
+                const days = App.daysSince(inv.fecha);
+                if (days <= 30) sums.a030 += balance; else
+                if (days <= 60) sums.a3160 += balance; else
+                if (days <= 90) sums.a6190 += balance; else sums.a90p += balance;
+            });
+            const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = `$${val.toFixed(2)}`; };
+            setText('aging030', sums.a030);
+            setText('aging3160', sums.a3160);
+            setText('aging6190', sums.a6190);
+            setText('aging90plus', sums.a90p);
         } catch (error) {
             console.error('Error loading accounts receivable:', error);
         }
