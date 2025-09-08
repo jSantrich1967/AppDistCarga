@@ -366,7 +366,7 @@ const App = {
         
         // Actualizar información del usuario
         document.getElementById('userInfo').textContent = 
-            `${currentUser.fullName} (${isAdmin ? 'Administrador' : 'Agente/Cliente'})`;
+            `${currentUser && currentUser.fullName ? currentUser.fullName : 'Usuario Desconocido'} (${isAdmin ? 'Administrador' : 'Agente/Cliente'})`;
         
         
         
