@@ -205,6 +205,36 @@ app.get('/api/actas/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// Actualizar estado de una guía dentro de un acta
+app.put('/api/actas/:id/guides/:no/status', authenticateToken, async (req, res) => {
+    try {
+        const { id, no } = req.params;
+        const { status } = req.body;
+        if (!status) {
+            return res.status(400).json({ error: 'status requerido' });
+        }
+
+        const result = await pool.query('SELECT data FROM actas WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Acta no encontrada' });
+        }
+        const acta = typeof result.rows[0].data === 'string' ? JSON.parse(result.rows[0].data) : result.rows[0].data;
+        if (!Array.isArray(acta.guides)) acta.guides = [];
+
+        const guideIndex = acta.guides.findIndex(g => String(g.no) === String(no));
+        if (guideIndex === -1) {
+            return res.status(404).json({ error: 'Guía no encontrada en el acta' });
+        }
+        acta.guides[guideIndex].status = status;
+
+        await pool.query('UPDATE actas SET data = $1 WHERE id = $2', [JSON.stringify(acta), id]);
+        res.json({ ok: true, acta });
+    } catch (error) {
+        console.error('Error actualizando estado de guía:', error);
+        res.status(500).json({ error: 'Error actualizando estado de guía' });
+    }
+});
+
 // CRUD para Agentes
 app.post('/api/agents', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
     try {

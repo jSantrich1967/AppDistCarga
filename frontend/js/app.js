@@ -1602,6 +1602,8 @@ const App = {
                     <th>PESO</th>
                     <th>DESTINO</th>
                     <th>DIRECCION</th>
+                    <th>ESTADO</th>
+                    <th>Acciones</th>
                     <th>Subtotal</th>
                 </tr>
             </thead>
@@ -1623,6 +1625,14 @@ const App = {
                     <td>${(parseFloat(g.peso) || 0).toFixed(2)}</td>
                     <td>${g.destino || ''}</td>
                     <td>${g.direccion || ''}</td>
+                    <td><span class="status-badge">${g.status || 'almacen'}</span></td>
+                    <td>
+                        <select onchange="App.updateGuideStatus('${acta.id}','${g.no || i + 1}', this.value)">
+                            <option value="almacen" ${String(g.status||'almacen')==='almacen'?'selected':''}>En almacén</option>
+                            <option value="despacho" ${String(g.status)==='despacho'?'selected':''}>Despacho</option>
+                            <option value="entregado" ${String(g.status)==='entregado'?'selected':''}>Entregado</option>
+                        </select>
+                    </td>
                     <td>${(parseFloat(g.subtotal) || 0).toFixed(2)}</td>
                 </tr>
             `;
@@ -1643,6 +1653,19 @@ const App = {
         // Cerrar modal
         modal.querySelector('.modal-close').addEventListener('click', App.closeModals);
         modal.addEventListener('click', (e) => { if (e.target === modal) App.closeModals(); });
+    },
+
+    updateGuideStatus: async function(actaId, guideNo, status) {
+        try {
+            await App.apiCall(`/actas/${actaId}/guides/${guideNo}/status`, {
+                method: 'PUT',
+                body: JSON.stringify({ status })
+            });
+            Toast.success('Estado de guía actualizado');
+        } catch (error) {
+            console.error('Error actualizando estado de guía:', error);
+            Toast.error('No se pudo actualizar: ' + error.message);
+        }
     },
 
     // Añadir una fila de guía al formulario
