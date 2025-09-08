@@ -169,7 +169,8 @@ app.post('/api/actas', authenticateToken, async (req, res) => {
             ...req.body,
             createdAt: new Date().toISOString()
         };
-        await pool.query('INSERT INTO actas (id, data) VALUES ($1, $2)', [newActa.id, newActa]);
+        // Guardar como JSON explícito para garantizar compatibilidad con JSONB
+        await pool.query('INSERT INTO actas (id, data) VALUES ($1, $2)', [newActa.id, JSON.stringify(newActa)]);
         res.status(201).json(newActa);
     } catch (error) {
         console.error('Error creando acta:', error);
@@ -180,7 +181,9 @@ app.post('/api/actas', authenticateToken, async (req, res) => {
 app.get('/api/actas', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query('SELECT data FROM actas');
-        res.json(result.rows.map(r => r.data));
+        // Asegurar parseo del JSON almacenado como texto
+        const actas = result.rows.map(r => (typeof r.data === 'string' ? JSON.parse(r.data) : r.data));
+        res.json(actas);
     } catch (error) {
         console.error('Error obteniendo actas:', error);
         res.status(500).json({ error: 'Error obteniendo actas' });
@@ -194,7 +197,8 @@ app.get('/api/actas/:id', authenticateToken, async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Acta no encontrada' });
         }
-        res.json(result.rows[0].data);
+        const data = result.rows[0].data;
+        res.json(typeof data === 'string' ? JSON.parse(data) : data);
     } catch (error) {
         console.error('Error obteniendo acta:', error);
         res.status(500).json({ error: 'Error obteniendo acta' });
@@ -339,7 +343,8 @@ app.post('/api/invoices', authenticateToken, authorizeRoles(['admin']), async (r
             createdAt: new Date().toISOString(),
         };
 
-        await pool.query('INSERT INTO invoices (id, acta_id, data) VALUES ($1, $2, $3)', [newInvoice.id, actaId, newInvoice]);
+        // Guardar como JSON explícito para garantizar compatibilidad con JSONB
+        await pool.query('INSERT INTO invoices (id, acta_id, data) VALUES ($1, $2, $3)', [newInvoice.id, actaId, JSON.stringify(newInvoice)]);
 
         res.status(201).json(newInvoice);
     } catch (error) {
@@ -351,7 +356,8 @@ app.post('/api/invoices', authenticateToken, authorizeRoles(['admin']), async (r
 app.get('/api/invoices', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query('SELECT data FROM invoices');
-        res.json(result.rows.map(r => r.data));
+        const invoices = result.rows.map(r => (typeof r.data === 'string' ? JSON.parse(r.data) : r.data));
+        res.json(invoices);
     } catch (error) {
         console.error('Error obteniendo facturas:', error);
         res.status(500).json({ error: 'Error obteniendo facturas' });
@@ -365,7 +371,8 @@ app.get('/api/invoices/:id', authenticateToken, async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Factura no encontrada' });
         }
-        res.json(result.rows[0].data);
+        const data = result.rows[0].data;
+        res.json(typeof data === 'string' ? JSON.parse(data) : data);
     } catch (error) {
         console.error('Error obteniendo factura:', error);
         res.status(500).json({ error: 'Error obteniendo factura' });
