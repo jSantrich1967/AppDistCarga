@@ -1540,18 +1540,29 @@ const App = {
                 return;
             }
 
-            // Normalizar encabezados
-            const toKey = (s) => String(s).trim().toLowerCase();
+            // Normalizar encabezados (remover acentos y puntos)
+            const normalizeKey = (s) => String(s)
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '') // quitar acentos
+                .replace(/[\.]/g, '') // quitar puntos
+                .trim()
+                .toLowerCase();
 
-            // Mapas de columnas esperadas
+            // Mapas de columnas esperadas (según tu plantilla)
             const colMap = {
-                no: ['no', 'no guia', 'n° guia', 'n guia', 'noguia', 'num', 'numero'],
-                cliente: ['cliente', 'nombre cliente'],
-                direccion: ['direccion', 'dirección'],
-                cantDespachada: ['cant despachada', 'bultos', 'cantidad'],
-                piesCubicos: ['pies', 'pies cubicos', 'pies cúbicos'],
-                peso: ['peso', 'kgs', 'kilogramos'],
-                via: ['via', 'vía', 'transport']
+                no: ['no'],
+                warehouse: ['warehouse', 'almacen', 'almacen'],
+                file: ['file', 'expediente'],
+                origen: ['origen'],
+                via: ['via', 'via'],
+                cliente: ['cliente'],
+                embarcador: ['embarcador', 'shipper'],
+                cantTeorica: ['cant teorica', 'cantidad teorica'],
+                cantDespachada: ['cant despach', 'cant despachada', 'cantidad despachada'],
+                piesCubicos: ['pies cubicos', 'pies'],
+                peso: ['peso', 'kgs'],
+                destino: ['destino'],
+                direccion: ['direccion']
             };
 
             const tbody = document.querySelector('#guidesTable tbody');
@@ -1564,7 +1575,7 @@ const App = {
             rows.forEach((row, idx) => {
                 const getByAliases = (aliases) => {
                     for (const alias of aliases) {
-                        const matchKey = Object.keys(row).find(k => toKey(k) === toKey(alias));
+                        const matchKey = Object.keys(row).find(k => normalizeKey(k) === normalizeKey(alias));
                         if (matchKey) return row[matchKey];
                     }
                     return '';
@@ -1572,21 +1583,27 @@ const App = {
 
                 const guide = {
                     no: getByAliases(colMap.no) || (idx + 1),
+                    warehouse: getByAliases(colMap.warehouse),
+                    file: getByAliases(colMap.file),
+                    origen: getByAliases(colMap.origen),
+                    via: (getByAliases(colMap.via) || 'terrestre').toString().toLowerCase(),
                     cliente: getByAliases(colMap.cliente),
-                    direccion: getByAliases(colMap.direccion),
+                    embarcador: getByAliases(colMap.embarcador),
+                    cantTeorica: getByAliases(colMap.cantTeorica),
                     cantDespachada: getByAliases(colMap.cantDespachada),
                     piesCubicos: getByAliases(colMap.piesCubicos),
                     peso: getByAliases(colMap.peso),
-                    via: (getByAliases(colMap.via) || 'terrestre').toString().toLowerCase(),
+                    destino: getByAliases(colMap.destino),
+                    direccion: getByAliases(colMap.direccion),
                 };
 
                 // Crear fila usando el mismo formato que addGuideRow
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><input type="text" name="no" value="${guide.no}" style="width:80px"></td>
-                    <td><input type="text" name="warehouse" style="width:120px"></td>
-                    <td><input type="text" name="file" style="width:120px"></td>
-                    <td><input type="text" name="origen" style="width:120px"></td>
+                    <td><input type="text" name="warehouse" value="${guide.warehouse}" style="width:120px"></td>
+                    <td><input type="text" name="file" value="${guide.file}" style="width:120px"></td>
+                    <td><input type="text" name="origen" value="${guide.origen}" style="width:120px"></td>
                     <td>
                         <select name="via">
                             <option value="terrestre" ${guide.via.includes('terr') ? 'selected' : ''}>Terrestre</option>
@@ -1595,12 +1612,12 @@ const App = {
                         </select>
                     </td>
                     <td><input type="text" name="cliente" value="${guide.cliente}" style="width:160px"></td>
-                    <td><input type="text" name="embarcador" style="width:160px"></td>
-                    <td><input type="number" name="cantTeorica" min="0" step="1" style="width:100px"></td>
+                    <td><input type="text" name="embarcador" value="${guide.embarcador}" style="width:160px"></td>
+                    <td><input type="number" name="cantTeorica" value="${guide.cantTeorica}" min="0" step="1" style="width:100px"></td>
                     <td><input type="number" name="cantDespachada" value="${guide.cantDespachada}" min="0" step="1" style="width:120px"></td>
                     <td><input type="number" name="piesCubicos" value="${guide.piesCubicos}" min="0" step="0.01" style="width:120px"></td>
                     <td><input type="number" name="peso" value="${guide.peso}" min="0" step="0.01" style="width:100px"></td>
-                    <td><input type="text" name="destino" style="width:140px"></td>
+                    <td><input type="text" name="destino" value="${guide.destino}" style="width:140px"></td>
                     <td><input type="text" name="direccion" value="${guide.direccion}" style="width:180px"></td>
                     <td><button type="button" class="btn btn-danger btn-sm">Eliminar</button></td>
                 `;
