@@ -98,9 +98,6 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
-// Servir archivos estáticos
-app.use(express.static(path.join(__dirname, '../frontend')));
-
 // Middleware de autenticación
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
@@ -406,6 +403,14 @@ app.get('/api/dashboard', authenticateToken, async (req, res) => {
 app.get('/api/user-profile', authenticateToken, (req, res) => {
     // req.user es establecido por el middleware authenticateToken
     res.json({ user: req.user });
+});
+
+// Servir archivos estáticos
+app.use(express.static(path.join(__dirname, '../frontend')));
+
+// Ruta para servir la aplicación (debe ir al final)
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 // Ruta para servir la aplicación (debe ir al final)
