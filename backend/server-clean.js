@@ -1,4 +1,5 @@
 const express = require('express');
+require('dotenv').config({ path: __dirname + '/.env' });
 const cors = require('cors');
 const path = require('path');
 const { Pool } = require('pg');
@@ -15,11 +16,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'tu-secreto-super-seguro-aqui';
 const DATABASE_URL = process.env.DATABASE_URL;
 
 // Configuración de la base de datos
+const isProduction = process.env.NODE_ENV === 'production';
+
 const pool = new Pool({
     connectionString: DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    }
+    ssl: isProduction ? { rejectUnauthorized: false } : false
 });
 
 // Función para inicializar la base de datos
