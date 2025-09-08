@@ -424,7 +424,37 @@ const App = {
     loadPayments: async function() {
         const tbody = document.querySelector('#paymentsTable tbody');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 16px; color: #666;">Sin datos de pagos</td></tr>';
+        try {
+            const [payments, invoices] = await Promise.all([
+                App.apiCall('/payments'),
+                App.apiCall('/invoices')
+            ]);
+            const invById = new Map((invoices || []).map(inv => [inv.id, inv]));
+            tbody.innerHTML = '';
+            if (!payments || payments.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 16px; color: #666;">No hay pagos registrados</td></tr>';
+                return;
+            }
+            payments.forEach(p => {
+                const inv = invById.get(p.invoiceId);
+                const num = inv ? (inv.numero || inv.id) : p.invoiceId;
+                const estado = inv ? App.getStatusText(inv.status || 'pending') : '-';
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${App.formatDate(p.fecha)}</td>
+                    <td>${p.concepto || ''}</td>
+                    <td>${p.referencia || ''}</td>
+                    <td>${(p.monto || 0).toFixed(2)}</td>
+                    <td>${num}</td>
+                    <td>${p.metodoPago || ''}</td>
+                    <td>${estado}</td>
+                    <td><button class="btn btn-info btn-sm" title="Ver" disabled><i class="fas fa-eye"></i></button></td>
+                `;
+            });
+        } catch (error) {
+            console.error('Error loading payments:', error);
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 16px; color: #c00;">Error al cargar pagos</td></tr>';
+        }
     },
 
     openPaymentModal: async function(invoiceId) {
