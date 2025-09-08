@@ -1342,6 +1342,151 @@ const App = {
         document.body.appendChild(modal);
     },
 
+    // Añadir una fila de guía al formulario
+    addGuideRow: function() {
+        const tbody = document.querySelector('#guidesTable tbody');
+        if (!tbody) return;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><input type="text" name="no" style="width:80px"></td>
+            <td><input type="text" name="warehouse" style="width:120px"></td>
+            <td><input type="text" name="file" style="width:120px"></td>
+            <td><input type="text" name="origen" style="width:120px"></td>
+            <td>
+                <select name="via">
+                    <option value="terrestre">Terrestre</option>
+                    <option value="aereo">Aéreo</option>
+                    <option value="maritimo">Marítimo</option>
+                </select>
+            </td>
+            <td><input type="text" name="cliente" style="width:160px"></td>
+            <td><input type="text" name="embarcador" style="width:160px"></td>
+            <td><input type="number" name="cantTeorica" min="0" step="1" style="width:100px"></td>
+            <td><input type="number" name="cantDespachada" min="0" step="1" style="width:120px"></td>
+            <td><input type="number" name="piesCubicos" min="0" step="0.01" style="width:120px"></td>
+            <td><input type="number" name="peso" min="0" step="0.01" style="width:100px"></td>
+            <td><input type="text" name="destino" style="width:140px"></td>
+            <td><input type="text" name="direccion" style="width:180px"></td>
+            <td><button type="button" class="btn btn-danger btn-sm">Eliminar</button></td>
+        `;
+
+        // Eventos para recalcular total o eliminar fila
+        row.querySelectorAll('input[name="piesCubicos"], select[name="via"]').forEach(el => {
+            el.addEventListener('input', App.updateTotal);
+            el.addEventListener('change', App.updateTotal);
+        });
+        row.querySelector('button').addEventListener('click', function() {
+            row.remove();
+            App.updateTotal();
+        });
+
+        tbody.appendChild(row);
+        App.updateTotal();
+    },
+
+    // Recalcular total general del acta
+    updateTotal: function() {
+        const ciudadSelect = document.getElementById('ciudad');
+        const ciudad = ciudadSelect ? ciudadSelect.value : '';
+
+        // Buscar tarifa de la ciudad seleccionada
+        const rateItem = Array.isArray(cityRates) ? cityRates.find(c => c.city === ciudad) : null;
+        const rate = rateItem ? parseFloat(rateItem.rate) : 0;
+
+        let total = 0;
+        document.querySelectorAll('#guidesTable tbody tr').forEach(tr => {
+            const pies = parseFloat(tr.querySelector('input[name="piesCubicos"]').value || '0');
+            if (!isNaN(pies) && !isNaN(rate)) {
+                total += pies * rate;
+            }
+        });
+        const totalEl = document.getElementById('totalGeneral');
+        if (totalEl) totalEl.textContent = total.toFixed(2);
+    },
+
+    // Enviar el formulario de Acta
+    handleActaSubmit: async function(e) {
+        e.preventDefault();
+        try {
+            App.showLoading(true);
+
+            const fecha = document.getElementById('fecha')?.value;
+            const ciudad = document.getElementById('ciudad')?.value;
+            const agente = document.getElementById('agente')?.value;
+            if (!fecha || !ciudad || !agente) {
+                Toast.error('Completa Fecha, Ciudad y Agente.');
+                return;
+            }
+
+            // Datos de vehículo (opcionales)
+            const modeloCamion = document.getElementById('modeloCamion')?.value || '';
+            const anioCamion = document.getElementById('anioCamion')?.value || '';
+            const placaCamion = document.getElementById('placaCamion')?.value || '';
+            const nombreChofer = document.getElementById('nombreChofer')?.value || '';
+            const telefonoChofer = document.getElementById('telefonoChofer')?.value || '';
+            const nombreAyudante = document.getElementById('nombreAyudante')?.value || '';
+            const telefonoAyudante = document.getElementById('telefonoAyudante')?.value || '';
+
+            // Construir guías desde la tabla
+            const guides = [];
+            document.querySelectorAll('#guidesTable tbody tr').forEach((tr, idx) => {
+                const get = name => tr.querySelector(`[name="${name}"]`)?.value || '';
+                const guide = {
+                    no: get('no') || (idx + 1),
+                    warehouse: get('warehouse'),
+                    file: get('file'),
+                    origen: get('origen'),
+                    via: get('via') || 'terrestre',
+                    cliente: get('cliente'),
+                    embarcador: get('embarcador'),
+                    cantTeorica: parseFloat(get('cantTeorica') || '0') || 0,
+                    cantDespachada: parseFloat(get('cantDespachada') || '0') || 0,
+                    piesCubicos: parseFloat(get('piesCubicos') || '0') || 0,
+                    peso: parseFloat(get('peso') || '0') || 0,
+                    destino: get('destino'),
+                    direccion: get('direccion'),
+                };
+                // Calcular subtotal con tarifa si existe
+                const rateItem = Array.isArray(cityRates) ? cityRates.find(c => c.city === ciudad) : null;
+                const rate = rateItem ? parseFloat(rateItem.rate) : 0;
+                guide.subtotal = (guide.piesCubicos || 0) * (isNaN(rate) ? 0 : rate);
+                guides.push(guide);
+            });
+
+            const actaData = {
+                fecha,
+                ciudad,
+                agente,
+                vehiculo: {
+                    modeloCamion,
+                    anioCamion,
+                    placaCamion,
+                    nombreChofer,
+                    telefonoChofer,
+                    nombreAyudante,
+                    telefonoAyudante,
+                },
+                guides,
+                status: 'pending'
+            };
+
+            await App.apiCall('/actas', {
+                method: 'POST',
+                body: JSON.stringify(actaData)
+            });
+
+            Toast.success('Acta creada exitosamente');
+            App.closeModals();
+            await App.loadActas();
+        } catch (error) {
+            console.error('Error al crear acta:', error);
+            Toast.error('No se pudo crear el acta: ' + error.message);
+        } finally {
+            App.showLoading(false);
+        }
+    },
+
 };
 
 document.addEventListener('DOMContentLoaded', App.initializeApp);
