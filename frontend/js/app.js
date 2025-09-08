@@ -427,6 +427,114 @@ const App = {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 16px; color: #666;">Sin datos de pagos</td></tr>';
     },
 
+    // ======== Cuentas por Cobrar ========
+    loadAccountsReceivable: async function() {
+        try {
+            const invoices = await App.apiCall('/invoices');
+            const pending = (invoices || []).filter(inv => (inv.status || 'pending') !== 'paid');
+
+            // Resumen
+            const total = pending.reduce((sum, inv) => sum + (inv.total || 0), 0);
+            const summary = document.getElementById('arSummary');
+            if (summary) {
+                summary.innerHTML = `
+                    <div class="stat-content">
+                        <h3>${pending.length}</h3>
+                        <p>Facturas pendientes</p>
+                        <h4 style="margin-top:8px;">$${total.toFixed(2)}</h4>
+                        <p>Monto pendiente</p>
+                    </div>
+                `;
+            }
+
+            // Tabla
+            const tbody = document.querySelector('#accountsReceivableTable tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            if (pending.length === 0) {
+                const row = tbody.insertRow();
+                row.innerHTML = '<td colspan="10" style="text-align:center; padding: 16px; color:#666;">No hay facturas pendientes</td>';
+                return;
+            }
+
+            pending.forEach(inv => {
+                const paid = inv.paid || 0;
+                const balance = (inv.total || 0) - paid;
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${inv.numero || inv.id}</td>
+                    <td>${App.formatDate(inv.fecha)}</td>
+                    <td>${inv.agente || inv.agent || ''}</td>
+                    <td>${inv.ciudad || ''}</td>
+                    <td>${(inv.total || 0).toFixed(2)}</td>
+                    <td>${paid.toFixed(2)}</td>
+                    <td>${balance.toFixed(2)}</td>
+                    <td>${App.daysSince(inv.fecha)}</td>
+                    <td>${App.getStatusText(inv.status || 'pending')}</td>
+                    <td><button class="btn btn-primary btn-sm" disabled>Registrar pago</button></td>
+                `;
+            });
+        } catch (error) {
+            console.error('Error loading accounts receivable:', error);
+        }
+    },
+
+    daysSince: function(dateStr) {
+        const d = new Date(dateStr);
+        if (isNaN(d)) return '-';
+        const diff = Date.now() - d.getTime();
+        return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+    },
+
+    applyAccountsFilters: function() {
+        // Simplificado: recarga todo por ahora
+        App.loadAccountsReceivable();
+    },
+
+    clearAccountsFilters: function() {
+        document.getElementById('arStatusFilter').value = '';
+        document.getElementById('arAgentFilter').value = '';
+        document.getElementById('arDateFrom').value = '';
+        document.getElementById('arDateTo').value = '';
+        App.loadAccountsReceivable();
+    },
+
+    exportAccountsReceivable: async function() {
+        try {
+            const invoices = await App.apiCall('/invoices');
+            const pending = (invoices || []).filter(inv => (inv.status || 'pending') !== 'paid');
+            const headers = ['Factura','Fecha','Agente','Ciudad','Total','Pagado','Saldo','Días','Estado'];
+            let csv = headers.join(',') + '\n';
+            pending.forEach(inv => {
+                const paid = inv.paid || 0;
+                const balance = (inv.total || 0) - paid;
+                const row = [
+                    inv.numero || inv.id,
+                    App.formatDate(inv.fecha),
+                    inv.agente || inv.agent || '',
+                    inv.ciudad || '',
+                    (inv.total || 0).toFixed(2),
+                    paid.toFixed(2),
+                    balance.toFixed(2),
+                    App.daysSince(inv.fecha),
+                    App.getStatusText(inv.status || 'pending')
+                ];
+                csv += row.map(v => `"${v}"`).join(',') + '\n';
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'cuentas_por_cobrar.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error exporting AR:', error);
+        }
+    },
+
     // Nueva función para configurar la UI según el rol
     setupUserInterface: function() {
         console.log("Verificando rol de usuario para UI:", currentUser);
