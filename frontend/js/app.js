@@ -1330,23 +1330,4 @@ const App = {
                 
                 console.log(`📋 Guía ${index + 1}:`, displayGuide);
                 
-                return `
-                    <tr>
-                        <td>${displayGuide.no}</td>
-                        <td><strong>${displayGuide.warehouse}</strong></td>
-                        <td>${displayGuide.cliente}</td>
-                        <td>${displayGuide.direccion}</td>
-                        <td>${displayGuide.cantDespachada}</td>
-                        <td>${displayGuide.piesCubicos}</td>
-                        <td>${displayGuide.peso}</td>
-                        <td>${displayGuide.via}</td>
-                        <td>$${parseFloat(displayGuide.subtotal || 0).toFixed(2)}</td>
-                        <td>
-                            <span id="guideStatus_${index}" class="status-badge ${App.getStatusBadgeClass(status)}">
-                                ${App.getStatusText(status)}
-                            </span>
-                            <br>
-                            <button class="btn-mini btn-status" onclick="App.showGuideStatusModal('${acta.id}', ${index}, '${encodeURIComponent(JSON.stringify(guide)).replace(/'/g, '\'')}')">🔄</button>
-                        </td>
-                    </tr>
-                `;
+                return `<tr><td>TEST</td></tr>`;
