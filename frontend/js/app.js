@@ -374,6 +374,8 @@ const App = {
             generated: 'Generada',
             invoiced: 'Facturada',
             paid: 'Pagada',
+            partial: 'Pago Parcial',
+            cancelled: 'Anulada',
             active: 'Activa',
             cancelled: 'Anulada'
         };
@@ -412,11 +414,32 @@ const App = {
                     <td>
                         <button class="btn btn-info btn-sm" onclick="App.viewInvoice('${inv.id}')" title="Ver"><i class="fas fa-eye"></i></button>
                         <button class="btn btn-success btn-sm" onclick="App.printInvoice('${inv.id}')" title="Imprimir"><i class="fas fa-print"></i></button>
+                        <button class="btn btn-warning btn-sm" onclick="App.cancelInvoice('${inv.id}')" title="Anular"><i class="fas fa-ban"></i></button>
                     </td>
                 `;
             });
         } catch (error) {
             console.error('Error loading invoices:', error);
+        }
+    },
+
+    cancelInvoice: async function(invoiceId) {
+        if (!confirm('¿Seguro que deseas anular esta factura?')) return;
+        try {
+            App.showLoading(true);
+            await App.apiCall(`/invoices/${invoiceId}/status`, {
+                method: 'PUT',
+                body: JSON.stringify({ status: 'cancelled' })
+            });
+            Toast.success('Factura anulada');
+            await App.loadInvoices();
+            await App.loadActas();
+            await App.loadAccountsReceivable();
+        } catch (error) {
+            console.error('Error cancelling invoice:', error);
+            Toast.error('No se pudo anular: ' + error.message);
+        } finally {
+            App.showLoading(false);
         }
     },
 

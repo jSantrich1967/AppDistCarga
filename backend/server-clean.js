@@ -416,6 +416,46 @@ app.get('/api/invoices/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// Actualizar estado de factura (cancelled/paid/partial)
+app.put('/api/invoices/:id/status', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        if (!status) {
+            return res.status(400).json({ error: 'status requerido' });
+        }
+
+        const invRes = await pool.query('SELECT data FROM invoices WHERE id = $1', [id]);
+        if (invRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Factura no encontrada' });
+        }
+        const invoice = typeof invRes.rows[0].data === 'string' ? JSON.parse(invRes.rows[0].data) : invRes.rows[0].data;
+        invoice.status = status;
+        await pool.query('UPDATE invoices SET data = $1 WHERE id = $2', [JSON.stringify(invoice), id]);
+
+        // Propagar a acta
+        try {
+            if (invoice.actaId) {
+                const actaRes = await pool.query('SELECT data FROM actas WHERE id = $1', [invoice.actaId]);
+                if (actaRes.rows.length > 0) {
+                    const acta = typeof actaRes.rows[0].data === 'string' ? JSON.parse(actaRes.rows[0].data) : actaRes.rows[0].data;
+                    if (status === 'cancelled') acta.status = 'cancelled';
+                    if (status === 'paid') acta.status = 'paid';
+                    if (status === 'partial') acta.status = 'invoiced';
+                    await pool.query('UPDATE actas SET data = $1 WHERE id = $2', [JSON.stringify(acta), invoice.actaId]);
+                }
+            }
+        } catch (e) {
+            console.warn('No se pudo propagar estado a acta:', e.message);
+        }
+
+        res.json(invoice);
+    } catch (error) {
+        console.error('Error actualizando estado de factura:', error);
+        res.status(500).json({ error: 'Error actualizando estado de factura' });
+    }
+});
+
 // Pagos
 app.post('/api/payments', authenticateToken, authorizeRoles(['admin']), async (req, res) => {
     try {
