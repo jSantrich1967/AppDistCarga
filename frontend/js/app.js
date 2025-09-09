@@ -276,9 +276,9 @@ const App = {
         try {
             // Usar apiCall que ya envía el token correctamente.
             const data = await App.apiCall('/user-profile'); 
-            console.log('Data from user-profile:', data); 
-            currentUser = data.user;
-            console.log('currentUser after setting:', currentUser);
+                console.log('Data from user-profile:', data); 
+                currentUser = data.user;
+                console.log('currentUser after setting:', currentUser);
             App.showMainScreen();
         } catch (error) {
             console.error('Token validation failed:', error);
@@ -1716,7 +1716,7 @@ const App = {
         const modal = document.createElement('div');
         modal.className = 'modal active';
         modal.id = 'actaDetailsModal';
-
+        
         const header = `
             <div class="modal-header">
                 <h3>Acta ${acta.id} - ${App.formatDate(acta.fecha)} (${acta.ciudad})</h3>
@@ -2203,6 +2203,93 @@ const App = {
         } catch (error) {
             console.error('Error leyendo Excel:', error);
             Toast.error('No se pudo leer el Excel: ' + error.message);
+        }
+    },
+
+    // ======== Respaldo (Export/Import) ========
+    exportBackup: async function() {
+        try {
+            App.showLoading(true);
+            // recolectar datos de todas las entidades disponibles
+            const [actas, invoices, payments, agents, cityRates] = await Promise.all([
+                App.apiCall('/actas').catch(()=>[]),
+                App.apiCall('/invoices').catch(()=>[]),
+                App.apiCall('/payments').catch(()=>[]),
+                App.apiCall('/agents').catch(()=>[]),
+                App.apiCall('/city_rates').catch(()=>[]),
+            ]);
+            const backup = {
+                exportedAt: new Date().toISOString(),
+                app: 'AppDistCarga',
+                version: 1,
+                actas, invoices, payments, agents, cityRates,
+            };
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backup-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            Toast.success('Respaldo exportado correctamente');
+        } catch (error) {
+            console.error('Error exportando respaldo:', error);
+            Toast.error('No se pudo exportar el respaldo: ' + error.message);
+        } finally {
+            App.showLoading(false);
+        }
+    },
+
+    handleBackupFileSelection: function(e) {
+        const file = e.target.files[0];
+        const info = document.querySelector('#selectedFileInfo small #fileName') || document.getElementById('fileName');
+        const importBtn = document.getElementById('importBackupBtn');
+        if (file) {
+            if (info) info.textContent = file.name;
+            if (importBtn) importBtn.disabled = false;
+        } else {
+            if (info) info.textContent = '';
+            if (importBtn) importBtn.disabled = true;
+        }
+    },
+
+    importBackup: async function() {
+        try {
+            const input = document.getElementById('importBackupFile');
+            if (!input || !input.files || input.files.length === 0) {
+                Toast.warning('Selecciona un archivo de respaldo (.json)');
+                return;
+            }
+            const file = input.files[0];
+            const text = await file.text();
+            const data = JSON.parse(text);
+            // Sólo restauramos catálogos simples (agents y city_rates) por seguridad
+            if (Array.isArray(data.agents)) {
+                for (const ag of data.agents) {
+                    if (ag && ag.name) {
+                        try {
+                            await App.apiCall('/agents', { method: 'POST', body: JSON.stringify({ name: ag.name }) });
+                        } catch {}
+                    }
+                }
+            }
+            if (Array.isArray(data.cityRates)) {
+                // crear si no existen
+                for (const cr of data.cityRates) {
+                    if (cr && cr.city && cr.rate !== undefined) {
+                        try {
+                            await App.apiCall('/city_rates', { method: 'POST', body: JSON.stringify({ city: cr.city, rate: cr.rate }) });
+                        } catch {}
+                    }
+                }
+            }
+            Toast.success('Respaldo importado (catálogos)');
+            await App.loadSettings();
+        } catch (error) {
+            console.error('Error importando respaldo:', error);
+            Toast.error('No se pudo importar el respaldo: ' + error.message);
         }
     },
 

@@ -526,7 +526,10 @@ app.get('/api/user-profile', authenticateToken, (req, res) => {
     res.json({ user: req.user });
 });
 
-// Servir archivos estáticos
+// Servir archivos estáticos (mapeos explícitos para evitar 404 de estilos/scripts)
+app.use('/css', express.static(path.join(__dirname, '../frontend/css')));
+app.use('/js', express.static(path.join(__dirname, '../frontend/js')));
+app.use('/assets', express.static(path.join(__dirname, '../frontend/assets')));
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 // Ruta para servir la aplicación (debe ir al final)
