@@ -1624,7 +1624,7 @@ const App = {
                 <td><span class="badge badge-info">${numGuias}</span></td>
                 <td><strong>${total.toFixed(2)}</strong></td>
                 <td>${invoice ? `<span class="badge badge-success">#${invoice.number || invoice.id}</span>` : '<span class="badge badge-warning">Pendiente</span>'}</td>
-                <td><span class="status-badge status-${acta.status || 'pending'}">${App.getStatusText(acta.status || 'pending')}</span></td>
+                <td><span class="status-badge status-${acta.status || (invoice ? 'invoiced' : 'pending')}">${App.getStatusText(acta.status || (invoice ? 'invoiced' : 'pending'))}</span></td>
                 <td class="actions">
                     <button class="btn btn-info btn-sm" onclick="App.viewActaDetails('${acta.id}')" title="Ver Detalles">
                         <i class="fas fa-eye"></i>

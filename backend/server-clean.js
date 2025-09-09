@@ -340,7 +340,7 @@ app.post('/api/invoices', authenticateToken, authorizeRoles(['admin']), async (r
         if (actaResult.rows.length === 0) {
             return res.status(404).json({ error: 'Acta no encontrada' });
         }
-        const acta = actaResult.rows[0].data;
+        const acta = typeof actaResult.rows[0].data === 'string' ? JSON.parse(actaResult.rows[0].data) : actaResult.rows[0].data;
 
         const cityRatesResult = await pool.query('SELECT city, rate FROM city_rates');
         const cityRates = cityRatesResult.rows.reduce((acc, row) => {
@@ -375,6 +375,13 @@ app.post('/api/invoices', authenticateToken, authorizeRoles(['admin']), async (r
 
         // Guardar como JSON explícito para garantizar compatibilidad con JSONB
         await pool.query('INSERT INTO invoices (id, acta_id, data) VALUES ($1, $2, $3)', [newInvoice.id, actaId, JSON.stringify(newInvoice)]);
+        // Marcar el acta como facturada (invoiced)
+        try {
+            acta.status = (acta.status === 'paid') ? 'paid' : 'invoiced';
+            await pool.query('UPDATE actas SET data = $1 WHERE id = $2', [JSON.stringify(acta), actaId]);
+        } catch (e) {
+            console.warn('No se pudo actualizar el estado del acta a invoiced:', e.message);
+        }
 
         res.status(201).json(newInvoice);
     } catch (error) {
