@@ -615,6 +615,8 @@ const App = {
         try {
             const invoices = await App.apiCall('/invoices');
             const pending = (invoices || []).filter(inv => (inv.status || 'pending') !== 'paid');
+            // cache para filtros por antigüedad
+            App._arPendingCache = pending;
 
             // Resumen
             const total = pending.reduce((sum, inv) => sum + (inv.total || 0), 0);
@@ -630,33 +632,8 @@ const App = {
                 `;
             }
 
-            // Tabla
-            const tbody = document.querySelector('#accountsReceivableTable tbody');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-            if (pending.length === 0) {
-                const row = tbody.insertRow();
-                row.innerHTML = '<td colspan="10" style="text-align:center; padding: 16px; color:#666;">No hay facturas pendientes</td>';
-                return;
-            }
-
-            pending.forEach(inv => {
-                const paid = inv.paid || 0;
-                const balance = (inv.total || 0) - paid;
-                const row = tbody.insertRow();
-                row.innerHTML = `
-                    <td>${inv.numero || inv.id}</td>
-                    <td>${App.formatDate(inv.fecha)}</td>
-                    <td>${inv.agente || inv.agent || ''}</td>
-                    <td>${inv.ciudad || ''}</td>
-                    <td>${(inv.total || 0).toFixed(2)}</td>
-                    <td>${paid.toFixed(2)}</td>
-                    <td>${balance.toFixed(2)}</td>
-                    <td>${App.daysSince(inv.fecha)}</td>
-                    <td>${App.getStatusText(inv.status || 'pending')}</td>
-                    <td><button class="btn btn-primary btn-sm" onclick="App.openPaymentModal('${inv.id}')">Registrar pago</button></td>
-                `;
-            });
+            // Render inicial de tabla
+            App.renderAccountsTable(pending);
 
             // Aging (0-30,31-60,61-90,+90)
             const sums = { a030: 0, a3160: 0, a6190: 0, a90p: 0 };
@@ -673,9 +650,63 @@ const App = {
             setText('aging3160', sums.a3160);
             setText('aging6190', sums.a6190);
             setText('aging90plus', sums.a90p);
+
+            // Activar clic en tarjetas de antigüedad para filtrar
+            const setClick = (selector, range) => {
+                const el = document.querySelector(selector);
+                if (el) {
+                    el.style.cursor = 'pointer';
+                    el.onclick = () => App.filterAccountsByAging(range);
+                }
+            };
+            setClick('.aging-current', '0-30');
+            setClick('.aging-warning', '31-60');
+            setClick('.aging-danger', '61-90');
+            setClick('.aging-critical', '90+');
         } catch (error) {
             console.error('Error loading accounts receivable:', error);
         }
+    },
+
+    renderAccountsTable: function(list) {
+        const tbody = document.querySelector('#accountsReceivableTable tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        if (!list || list.length === 0) {
+            const row = tbody.insertRow();
+            row.innerHTML = '<td colspan="10" style="text-align:center; padding: 16px; color:#666;">No hay facturas pendientes</td>';
+            return;
+        }
+        list.forEach(inv => {
+            const paid = inv.paid || 0;
+            const balance = (inv.total || 0) - paid;
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td>${inv.numero || inv.id}</td>
+                <td>${App.formatDate(inv.fecha)}</td>
+                <td>${inv.agente || inv.agent || ''}</td>
+                <td>${inv.ciudad || ''}</td>
+                <td>${(inv.total || 0).toFixed(2)}</td>
+                <td>${paid.toFixed(2)}</td>
+                <td>${balance.toFixed(2)}</td>
+                <td>${App.daysSince(inv.fecha)}</td>
+                <td>${App.getStatusText(inv.status || 'pending')}</td>
+                <td><button class="btn btn-primary btn-sm" onclick="App.openPaymentModal('${inv.id}')">Registrar pago</button></td>
+            `;
+        });
+    },
+
+    filterAccountsByAging: function(range) {
+        const list = Array.isArray(App._arPendingCache) ? App._arPendingCache : [];
+        const filtered = list.filter(inv => {
+            const days = App.daysSince(inv.fecha);
+            if (range === '0-30') return days <= 30;
+            if (range === '31-60') return days >= 31 && days <= 60;
+            if (range === '61-90') return days >= 61 && days <= 90;
+            if (range === '90+') return days >= 91;
+            return true;
+        });
+        App.renderAccountsTable(filtered);
     },
 
     daysSince: function(dateStr) {
