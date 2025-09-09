@@ -409,14 +409,120 @@ const App = {
                     <td>${(inv.total || 0).toFixed(2)}</td>
                     <td>${App.getStatusText(inv.status || 'pending')}</td>
                     <td>
-                        <button class="btn btn-info btn-sm" onclick="alert('Vista de factura no implementada');" title="Ver">
-                            <i class="fas fa-eye"></i>
-                        </button>
+                        <button class="btn btn-info btn-sm" onclick="App.viewInvoice('${inv.id}')" title="Ver"><i class="fas fa-eye"></i></button>
+                        <button class="btn btn-success btn-sm" onclick="App.printInvoice('${inv.id}')" title="Imprimir"><i class="fas fa-print"></i></button>
                     </td>
                 `;
             });
         } catch (error) {
             console.error('Error loading invoices:', error);
+        }
+    },
+
+    viewInvoice: async function(invoiceId) {
+        try {
+            const invoice = await App.apiCall(`/invoices/${invoiceId}`);
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.id = 'invoiceModal';
+            const guides = invoice.guides || [];
+            const rows = guides.map((g, i) => `
+                <tr>
+                    <td>${i+1}</td>
+                    <td>${g.cliente||''}</td>
+                    <td>${g.direccion||''}</td>
+                    <td>${(parseFloat(g.piesCubicos)||0).toFixed(2)}</td>
+                    <td>${(parseFloat(g.subtotal)||0).toFixed(2)}</td>
+                </tr>
+            `).join('');
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Factura ${invoice.numero || invoice.id}</h3>
+                        <button class="modal-close">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div><strong>Fecha:</strong> ${App.formatDate(invoice.fecha)} · <strong>Ciudad:</strong> ${invoice.ciudad||''} · <strong>Agente:</strong> ${invoice.agente||''}</div>
+                        <table class="data-table" style="margin-top:10px;">
+                            <thead>
+                                <tr><th>#</th><th>Cliente</th><th>Dirección</th><th>Pies³</th><th>Subtotal</th></tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                        <div style="text-align:right; margin-top:10px;"><strong>Total: $${(invoice.total||0).toFixed(2)}</strong></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-success" onclick="App.printInvoice('${invoice.id}')"><i class="fas fa-print"></i> Imprimir</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            modal.querySelector('.modal-close').addEventListener('click', App.closeModals);
+            modal.addEventListener('click', (e)=>{ if(e.target===modal) App.closeModals(); });
+        } catch (error) {
+            console.error('Error viendo factura:', error);
+            Toast.error('No se pudo cargar la factura: ' + error.message);
+        }
+    },
+
+    printInvoice: async function(invoiceId) {
+        try {
+            const invoice = await App.apiCall(`/invoices/${invoiceId}`);
+            const guides = invoice.guides || [];
+            const rows = guides.map((g, i) => `
+                <tr>
+                    <td>${i+1}</td>
+                    <td>${g.cliente||''}</td>
+                    <td>${g.direccion||''}</td>
+                    <td>${(parseFloat(g.piesCubicos)||0).toFixed(2)}</td>
+                    <td>${(parseFloat(g.subtotal)||0).toFixed(2)}</td>
+                </tr>
+            `).join('');
+            const html = `
+                <html>
+                <head>
+                    <title>Factura ${invoice.numero || invoice.id}</title>
+                    <style>
+                        body{font-family: Arial, sans-serif; padding:20px;}
+                        h1,h2,h3{margin:0;}
+                        .header{display:flex; justify-content:space-between; margin-bottom:16px;}
+                        table{width:100%; border-collapse: collapse;}
+                        th,td{border:1px solid #333; padding:6px; font-size:12px;}
+                        .right{text-align:right}
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <div>
+                            <h2>Factura ${invoice.numero || invoice.id}</h2>
+                            <div>Fecha: ${App.formatDate(invoice.fecha)}</div>
+                            <div>Ciudad: ${invoice.ciudad||''}</div>
+                            <div>Agente: ${invoice.agente||''}</div>
+                        </div>
+                        <div class="right">
+                            <h3>Total: $${(invoice.total||0).toFixed(2)}</h3>
+                        </div>
+                    </div>
+                    <table>
+                        <thead><tr><th>#</th><th>Cliente</th><th>Dirección</th><th>Pies³</th><th>Subtotal</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                    <div class="right" style="margin-top:10px;">Subtotal: $${(invoice.subtotal||invoice.total||0).toFixed(2)}</div>
+                    <script>window.print();</script>
+                </body>
+                </html>
+            `;
+            const w = window.open('', '_blank');
+            if (w) {
+                w.document.open();
+                w.document.write(html);
+                w.document.close();
+            } else {
+                Toast.error('El navegador bloqueó la ventana de impresión. Habilita pop-ups.');
+            }
+        } catch (error) {
+            console.error('Error imprimiendo factura:', error);
+            Toast.error('No se pudo imprimir: ' + error.message);
         }
     },
 
