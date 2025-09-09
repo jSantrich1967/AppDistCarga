@@ -372,6 +372,7 @@ const App = {
         const map = {
             pending: 'Pendiente',
             generated: 'Generada',
+            invoiced: 'Facturada',
             paid: 'Pagada',
             active: 'Activa',
             cancelled: 'Anulada'
