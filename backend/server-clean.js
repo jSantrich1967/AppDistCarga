@@ -448,6 +448,20 @@ app.post('/api/payments', authenticateToken, authorizeRoles(['admin']), async (r
         await pool.query('INSERT INTO payments (id, invoice_id, data) VALUES ($1, $2, $3)', [payment.id, invoiceId, JSON.stringify(payment)]);
         await pool.query('UPDATE invoices SET data = $1 WHERE id = $2', [JSON.stringify(invoice), invoiceId]);
 
+        // Si la factura quedó totalmente pagada, marcar el acta como "paid"
+        try {
+            if (invoice.status === 'paid' && invoice.actaId) {
+                const actaRes = await pool.query('SELECT data FROM actas WHERE id = $1', [invoice.actaId]);
+                if (actaRes.rows.length > 0) {
+                    const acta = typeof actaRes.rows[0].data === 'string' ? JSON.parse(actaRes.rows[0].data) : actaRes.rows[0].data;
+                    acta.status = 'paid';
+                    await pool.query('UPDATE actas SET data = $1 WHERE id = $2', [JSON.stringify(acta), invoice.actaId]);
+                }
+            }
+        } catch (e) {
+            console.warn('No se pudo actualizar status del acta tras pago:', e.message);
+        }
+
         res.status(201).json({ payment, invoice });
     } catch (error) {
         console.error('Error registrando pago:', error);
